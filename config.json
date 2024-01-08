@@ -1,0 +1,14 @@
+{
+  "variables": {
+    "nWords": 550,
+    "trueLength" : 0,
+    "concatenate" : 0,
+    "wordRange": [1,2],
+    "charRange": [2,5],
+    "charDistRange": [1,3],
+    "nBestFactorChar": 0.3,
+    "nBestFactorWord": 0.1,
+    "lower": 0,
+    "useLSA": 1
+  }
+}
