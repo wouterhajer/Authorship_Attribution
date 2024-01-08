@@ -49,7 +49,7 @@ def read_files(path, config):
                     text4 = ' '.join(words[n_words:n_words*2])
                     texts.append((text4, label))
             else:
-                texts.append((text3,label))
+                texts.append((text3, label))
 
             f.close()
 
