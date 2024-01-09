@@ -1,8 +1,8 @@
 {
   "variables": {
-    "nWords": 550,
+    "nWords": 400,
     "trueLength" : 0,
-    "concatenate" : 0,
+    "concatenate" : 1,
     "wordRange": [1,2],
     "charRange": [2,5],
     "charDistRange": [1,3],

@@ -14,7 +14,7 @@ def read_files(path, config):
     tot = 0
     for i, v in enumerate(files):
 
-        if v[-5] == '1' and 126 > int(v[6:9]) > 0:  # and int(v[6:9]) % 2 == 1:
+        if v[-5] == '1' and 31 > int(v[6:9]) > 0:  # and int(v[6:9]) % 2 == 1:
             f = codecs.open(v, 'r', encoding='utf-8')
             label = int(v[6:9])
             text = f.read()
@@ -69,7 +69,7 @@ def read_files(path, config):
         df = pd.DataFrame(new_texts, columns=['text', 'author'])
     # only keep authors with at least 7 recordings.
     v = df['author'].value_counts()
-    df = df[df['author'].isin(v[v >= 7].index)]
+    df = df[df['author'].isin(v[v >= 8].index)]
     df = df.reset_index(drop=True)
 
     return df

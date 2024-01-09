@@ -9,25 +9,26 @@ from word import *
 from char import *
 from char_dist import *
 import matplotlib.pyplot as plt
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, confusion_matrix, ConfusionMatrixDisplay
 from df_creator import *
+import seaborn as sn
 
 if __name__ == '__main__':
     start = time.time()
     with open('config.json') as f:
         config = json.load(f)
     # Random Seed at file level
-    random_seed = 36
+    random_seed = 37
     np.random.seed(random_seed)
     random.seed(random_seed)
 
     df = read_files('txt', config)
-
+    print(df)
     # Encode author labels
     label_encoder = LabelEncoder()
     df['author'] = label_encoder.fit_transform(df['author'])
 
-    train_df, test_df = train_test_split(df, test_size=0.2, stratify=df[['author']])
+    train_df, test_df = train_test_split(df, test_size=0.25, stratify=df[['author']])
 
     # shuffle training data
     train_df = train_df.sample(frac=1)
@@ -65,7 +66,11 @@ if __name__ == '__main__':
             sure.append(True)
         else:
             sure.append(False)
+    avg_preds = label_encoder.inverse_transform(avg_preds)
 
+    preds_char = label_encoder.inverse_transform(preds_char)
+    preds_word = label_encoder.inverse_transform(preds_word)
+    test_authors = label_encoder.inverse_transform(test_authors)
     # Indices where both lists are different
     index = [i for i, x in enumerate(zip(avg_preds,test_authors)) if x[0] != x[1]]
     print([avg_preds[x] for x in index])
@@ -116,3 +121,8 @@ if __name__ == '__main__':
     """
 
     print('Total time: ' + str(time.time() - start) + ' seconds')
+    conf = confusion_matrix(test_authors, avg_preds, normalize='true')
+    cmd = ConfusionMatrixDisplay(conf, display_labels=set(test_authors))
+    cmd.plot()
+
+    plt.show()
