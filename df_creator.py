@@ -14,7 +14,7 @@ def read_files(path, config):
     tot = 0
     for i, v in enumerate(files):
 
-        if v[-5] == '1' and 31 > int(v[6:9]) > 0:  # and int(v[6:9]) % 2 == 1:
+        if v[-5] == '1' and 61 > int(v[6:9]) > 0 and int(v[6:9]) % 2 == 1:
             f = codecs.open(v, 'r', encoding='utf-8')
             label = int(v[6:9])
             text = f.read()

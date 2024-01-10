@@ -18,7 +18,7 @@ if __name__ == '__main__':
     with open('config.json') as f:
         config = json.load(f)
     # Random Seed at file level
-    random_seed = 37
+    random_seed = 38
     np.random.seed(random_seed)
     random.seed(random_seed)
 
