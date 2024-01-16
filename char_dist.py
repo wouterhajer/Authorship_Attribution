@@ -20,8 +20,7 @@ def char_dist_gram(train_df, test_df, config):
     ## initialize tf-idf vectorizer for word n-gram model (captures content) ##
     vectorizer_char_dist = TfidfVectorizer(analyzer='char', ngram_range=char_dist_range, use_idf=True,
                                            norm='l2', lowercase=lower, vocabulary=vocab_char_dist,
-                                           min_df=0.1, max_df=0.8, smooth_idf=True,
-                                           sublinear_tf=True)
+                                           smooth_idf=True,sublinear_tf=True)
 
     train_data = vectorizer_char_dist.fit_transform(train_df['text']).toarray()
 

@@ -77,12 +77,8 @@ def extract_vocabulary(texts: list, n: int, ft: int, model: str):
             else:
                 occurrences[ngram] = text_occurrences[ngram]
 
-    vocabulary = []
-    for i in occurrences.keys():
-        if occurrences[i] >= ft:
-            vocabulary.append(i)
-
-    print(dict(sorted(occurrences.items(), key=lambda x:x[1],reverse=True)[:1000]))
+    vocabulary = sorted(occurrences, key=occurrences.get, reverse=True)
+    print(vocabulary[:100])
     return vocabulary
 
 def extend_vocabulary(n_range: tuple, texts: list, model: str):

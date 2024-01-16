@@ -121,7 +121,7 @@ if __name__ == '__main__':
     """
 
     print('Total time: ' + str(time.time() - start) + ' seconds')
-    conf = confusion_matrix(test_authors, avg_preds, normalize='true')
+    conf = confusion_matrix(test_authors, preds_char, normalize='true')
     cmd = ConfusionMatrixDisplay(conf, display_labels=set(test_authors))
     cmd.plot()
 

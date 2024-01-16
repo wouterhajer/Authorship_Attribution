@@ -1,9 +1,11 @@
 {
   "variables": {
-    "nWords": 200,
-    "trueLength" :1,
+    "nWords": 450,
+    "trueLength" :0,
     "concatenate" : 0,
-    "wordRange": [1 ,2],
+    "masking" : 1,
+    "nMasking": 1000,
+    "wordRange": [1,3],
     "charRange": [2,5],
     "charDistRange": [1,3],
     "nBestFactorChar": 0.3,
