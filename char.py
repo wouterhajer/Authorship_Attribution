@@ -6,7 +6,7 @@ from sklearn.utils import shuffle
 from sklearn.svm import SVC
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.multiclass import OneVsOneClassifier
-
+from masking import *
 import numpy as np
 from vocabulary import *
 
@@ -15,12 +15,8 @@ def char_gram(train_df, test_df, config):
     n_best_factor = config['variables']['nBestFactorChar']
     lower = bool(config['variables']['lower'])
     use_LSA = bool(config['variables']['useLSA'])
-    masking = bool(config['variables']['masking'])
-    if masking:
-        n_best_factor = 1
-        vocab_word = extend_vocabulary([1,1], train_df['text'], model='word')
-        print(vocab_word[:50])
-        print(vocab_word[-50:])
+
+    print(train_df)
     vocab_char = extend_vocabulary(char_range, train_df['text'], model='char-std')
     print(len(vocab_char))
     ## initialize tf-idf vectorizer for word n-gram model (captures content) ##
@@ -40,7 +36,9 @@ def char_gram(train_df, test_df, config):
     test_data_word = vectorizer_char.transform(test_df['text']).toarray()
     test_data_word = test_data_word[:, idx_w]
 
+    # Choose scaler
     max_abs_scaler = preprocessing.MaxAbsScaler()
+    # max_abs_scaler = preprocessing.MinMaxScaler()
 
     ## scale text data for word n-gram model ##
     scaled_train_data_word = max_abs_scaler.fit_transform(train_data_word)

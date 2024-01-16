@@ -32,6 +32,15 @@ if __name__ == '__main__':
 
     # shuffle training data
     train_df = train_df.sample(frac=1)
+    n_masking = config['masking']['nMasking']
+    if bool(config['masking']['masking']):
+        n_best_factor = 1
+        vocab_word = extend_vocabulary([1, 1], train_df['text'], model='word')
+        vocab_word = vocab_word[:n_masking]
+
+        train_df = mask(train_df, vocab_word, config)
+        test_df = mask(test_df, vocab_word, config)
+
     print('Start SVMs after ' + str(time.time() - start) + ' seconds')
     preds_word, probs_word = word_gram(train_df, test_df, config)
     print('End word SVM after ' + str(time.time() - start) + ' seconds')
@@ -121,7 +130,7 @@ if __name__ == '__main__':
     """
 
     print('Total time: ' + str(time.time() - start) + ' seconds')
-    conf = confusion_matrix(test_authors, preds_char, normalize='true')
+    conf = confusion_matrix(test_authors, avg_preds, normalize='true')
     cmd = ConfusionMatrixDisplay(conf, display_labels=set(test_authors))
     cmd.plot()
 

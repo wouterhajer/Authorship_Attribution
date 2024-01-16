@@ -8,13 +8,14 @@ from sklearn.multiclass import OneVsRestClassifier
 from sklearn.multiclass import OneVsOneClassifier
 import numpy as np
 from vocabulary import *
-
+from masking import *
 
 def word_gram(train_df, test_df, config):
     word_range = tuple(config['variables']['wordRange'])
     n_best_factor = config['variables']['nBestFactorWord']
     lower = bool(config['variables']['lower'])
     use_LSA = bool(config['variables']['useLSA'])
+
     vocab_word = extend_vocabulary(word_range, train_df['text'], model='word')
 
     ## initialize tf-idf vectorizer for word n-gram model (captures content) ##
