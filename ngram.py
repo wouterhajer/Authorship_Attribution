@@ -12,13 +12,14 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import f1_score, confusion_matrix, ConfusionMatrixDisplay
 from df_creator import *
 import seaborn as sn
+from split import *
 
 if __name__ == '__main__':
     start = time.time()
     with open('config.json') as f:
         config = json.load(f)
     # Random Seed at file level
-    random_seed = 38
+    random_seed = 37
     np.random.seed(random_seed)
     random.seed(random_seed)
 
@@ -28,9 +29,13 @@ if __name__ == '__main__':
     label_encoder = LabelEncoder()
     df['author'] = label_encoder.fit_transform(df['author'])
 
-    train_df, test_df = train_test_split(df, test_size=0.25, stratify=df[['author']])
+    if bool(config['randomConversations'])
+        train_df, test_df = train_test_split(df, test_size=0.25, stratify=df[['author']])
+    else:
+        train_df, test_df = split(df, 0.25)
 
     # shuffle training data
+    
     train_df = train_df.sample(frac=1)
     n_masking = config['masking']['nMasking']
     if bool(config['masking']['masking']):
@@ -40,6 +45,12 @@ if __name__ == '__main__':
 
         train_df = mask(train_df, vocab_word, config)
         test_df = mask(test_df, vocab_word, config)
+
+    if bool(config['baseline']):
+        config['variables']['wordRange'] = [1,1]
+        vocab_word = extend_vocabulary([1, 1], train_df['text'], model='word')
+        config['variables']['nBestFactorWord'] = 100/len(vocab_word)
+
 
     print('Start SVMs after ' + str(time.time() - start) + ' seconds')
     preds_word, probs_word = word_gram(train_df, test_df, config)
@@ -100,6 +111,8 @@ if __name__ == '__main__':
     print('F1 Score word:' + str(f1) + '\n')
 
     score = 0
+    score_partner = 0
+    score_rest = 0
     score_sure = 0
 
     for i in range(len(test_df['author'])):
@@ -107,7 +120,16 @@ if __name__ == '__main__':
             score += 1
             if sure[i]:
                 score_sure += 1
-
+        elif test_authors[i] == avg_preds[i]+1 and list(test_df['author'])[i] % 2 == 1:
+            score_partner += 1
+        elif test_authors[i] == avg_preds[i]-1 and list(test_df['author'])[i] % 2 == 0:
+            score_partner += 1
+        else:
+            score_rest += 1
+    print('Score = ' + str(score / len(sure)) +', random chance = '+ str(1/len(test_authors)))
+    print('Score partner = ' + str(score_partner / len(sure)) + ', random chance = ' + str(1 / len(test_authors)))
+    print('Score rest = ' + str(score_rest / len(sure)) + ', random chance = ' + str(1-2 / len(test_authors)))
+    """
     print('Percentage sure: ' + str(sure.count(True) / len(sure)))
     print('Score when sure: ' + str(score_sure / sure.count(True)))
     indeces = [i for i, x in enumerate(sure) if x]
@@ -116,8 +138,8 @@ if __name__ == '__main__':
     indeces = [i for i, x in enumerate(sure) if not x]
     f1 = f1_score([test_authors[x] for x in indeces], [avg_preds[x] for x in indeces], average='macro')
     print('Macro F1 when unsure:' + str(f1) + '\n')
-
-    """
+        
+    
     print(sum(diff_probs) / len(diff_probs))
     # Get all positive numbers into another list
     pos_only = [x for x in diff_probs if x > 0]

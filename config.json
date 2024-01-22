@@ -16,5 +16,8 @@
     "masking":  0,
     "nMasking": 100,
     "singleMasking": 1
-  }
+  },
+  "baseline": 0,
+  "randomConversations": 0,
+  "allCombinations": 1
 }
