@@ -14,6 +14,51 @@ from df_creator import *
 import seaborn as sn
 from split import *
 
+def ngram(train_df, test_df, config):
+    # shuffle training data
+    train_df = train_df.sample(frac=1)
+
+
+    n_masking = config['masking']['nMasking']
+    if bool(config['masking']['masking']):
+        n_best_factor = 1
+        vocab_word = extend_vocabulary([1, 1], train_df['text'], model='word')
+        vocab_word = vocab_word[:n_masking]
+
+        train_df = mask(train_df, vocab_word, config)
+        test_df = mask(test_df, vocab_word, config)
+
+    if bool(config['baseline']):
+        config['variables']['wordRange'] = [1, 1]
+        vocab_word = extend_vocabulary([1, 1], train_df['text'], model='word')
+        config['variables']['nBestFactorWord'] = 100 / len(vocab_word)
+
+    preds_word, probs_word = word_gram(train_df, test_df, config)
+    preds_char, probs_char = char_gram(train_df, test_df, config)
+    # preds_char_dist, probs_char_dist = char_dist_gram(train_df, test_df, config)
+
+
+    # Soft Voting procedure (combines the votes of the three individual classifier)
+    candidates = list(set(train_df['author']))
+    n_authors = (len(candidates))
+    test_authors = list(test_df['author'])
+
+    avg_probs = np.average([probs_word, probs_char], axis=0)
+    avg_preds = []
+    sure = []
+
+    for i, text_probs in enumerate(avg_probs):
+        ind_best = np.argmax(text_probs)
+        avg_preds.append(candidates[ind_best])
+
+        second = np.partition(text_probs, -2)[-2]
+        if text_probs.max() - second > 1 / n_authors:
+            sure.append(True)
+        else:
+            sure.append(False)
+
+    return avg_preds, preds_char, preds_word, test_authors, sure
+
 if __name__ == '__main__':
     start = time.time()
     with open('config.json') as f:
@@ -29,68 +74,18 @@ if __name__ == '__main__':
     label_encoder = LabelEncoder()
     df['author'] = label_encoder.fit_transform(df['author'])
 
-    if bool(config['randomConversations'])
+    if bool(config['randomConversations']):
         train_df, test_df = train_test_split(df, test_size=0.25, stratify=df[['author']])
     else:
         train_df, test_df = split(df, 0.25)
 
-    # shuffle training data
-    
-    train_df = train_df.sample(frac=1)
-    n_masking = config['masking']['nMasking']
-    if bool(config['masking']['masking']):
-        n_best_factor = 1
-        vocab_word = extend_vocabulary([1, 1], train_df['text'], model='word')
-        vocab_word = vocab_word[:n_masking]
+    avg_preds, preds_char, preds_word, test_authors, sure = ngram(train_df, test_df, config)
 
-        train_df = mask(train_df, vocab_word, config)
-        test_df = mask(test_df, vocab_word, config)
-
-    if bool(config['baseline']):
-        config['variables']['wordRange'] = [1,1]
-        vocab_word = extend_vocabulary([1, 1], train_df['text'], model='word')
-        config['variables']['nBestFactorWord'] = 100/len(vocab_word)
-
-
-    print('Start SVMs after ' + str(time.time() - start) + ' seconds')
-    preds_word, probs_word = word_gram(train_df, test_df, config)
-    print('End word SVM after ' + str(time.time() - start) + ' seconds')
-    preds_char, probs_char = char_gram(train_df, test_df, config)
-    # preds_char_dist, probs_char_dist = char_dist_gram(train_df, test_df, config)
-
-    print('End SVMs after ' + str(time.time() - start) + ' seconds\n')
-
-    # Soft Voting procedure (combines the votes of the three individual classifier)
-    candidates = list(set(df['author']))
-    n_authors = (len(candidates))
-    test_authors = list(test_df['author'])
-
-    avg_probs = np.average([probs_word, probs_char], axis=0)
-    avg_preds = []
-    diff_probs = []
-    sure = []
-
-    for i, text_probs in enumerate(avg_probs):
-        # plt.scatter(candidates, text_probs)
-        # plt.scatter(test_authors[i], text_probs[test_authors[i]], color='r')
-        # plt.show()
-        ind_best = np.argmax(text_probs)
-        avg_preds.append(candidates[ind_best])
-        probs_copy = text_probs.copy()
-        true_prob = text_probs[test_authors[i]]
-        max_false_prob = max(np.delete(probs_copy, test_authors[i]))
-        diff_probs.append(true_prob - max_false_prob)
-
-        second = np.partition(text_probs, -2)[-2]
-        if text_probs.max() - second > 1 / n_authors:
-            sure.append(True)
-        else:
-            sure.append(False)
     avg_preds = label_encoder.inverse_transform(avg_preds)
-
     preds_char = label_encoder.inverse_transform(preds_char)
     preds_word = label_encoder.inverse_transform(preds_word)
     test_authors = label_encoder.inverse_transform(test_authors)
+
     # Indices where both lists are different
     index = [i for i, x in enumerate(zip(avg_preds,test_authors)) if x[0] != x[1]]
     print([avg_preds[x] for x in index])
@@ -138,17 +133,6 @@ if __name__ == '__main__':
     indeces = [i for i, x in enumerate(sure) if not x]
     f1 = f1_score([test_authors[x] for x in indeces], [avg_preds[x] for x in indeces], average='macro')
     print('Macro F1 when unsure:' + str(f1) + '\n')
-        
-    
-    print(sum(diff_probs) / len(diff_probs))
-    # Get all positive numbers into another list
-    pos_only = [x for x in diff_probs if x > 0]
-    if pos_only:
-        print(sum(pos_only) / len(pos_only))
-
-    neg_only = [x for x in diff_probs if x < 0]
-    if neg_only:
-        print(sum(neg_only) / len(neg_only))
     """
 
     print('Total time: ' + str(time.time() - start) + ' seconds')

@@ -15,7 +15,7 @@ def read_files(path, config):
     author = 0
     for i, v in enumerate(files):
 
-        if v[-5] == '1' and 81 > int(v[6:9]) > 0 and v[9] != 'a':  # and int(v[6:9]) % 2 == 1:
+        if v[-5] == '1' and 5 > int(v[6:9]) > 0 and v[9] != 'a':  # and int(v[6:9]) % 2 == 1:
             odd = [1,2,3,4,5,6,7,8]
             even = [3,4,1,2,7,8,5,6]
 

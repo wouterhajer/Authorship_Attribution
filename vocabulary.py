@@ -78,7 +78,6 @@ def extract_vocabulary(texts: list, n: int, ft: int, model: str):
                 occurrences[ngram] = text_occurrences[ngram]
 
     vocabulary = sorted(occurrences, key=occurrences.get, reverse=True)
-    print(vocabulary[:100])
     return vocabulary
 
 def extend_vocabulary(n_range: tuple, texts: list, model: str):

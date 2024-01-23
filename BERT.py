@@ -18,7 +18,7 @@ random_seed = 43
 np.random.seed(random_seed)
 random.seed(random_seed)
 
-df = read_files('txt')
+df = read_files('txt',config)
 
 #only keep authors with at least 8 recordings.
 v = df['author'].value_counts()

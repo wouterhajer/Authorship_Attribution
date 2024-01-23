@@ -16,18 +16,17 @@ def char_gram(train_df, test_df, config):
     lower = bool(config['variables']['lower'])
     use_LSA = bool(config['variables']['useLSA'])
 
-    print(train_df)
+
     vocab_char = extend_vocabulary(char_range, train_df['text'], model='char-std')
-    print(len(vocab_char))
+
     ## initialize tf-idf vectorizer for word n-gram model (captures content) ##
     vectorizer_char = TfidfVectorizer(analyzer='char', ngram_range=char_range, use_idf=True,
                                       norm='l2', lowercase=lower, vocabulary=vocab_char,
                                       smooth_idf=True, sublinear_tf=True)
-    print(vectorizer_char.vocabulary.index('ja'))
+
     n = vectorizer_char.vocabulary.index('ja')
     train_data_word = vectorizer_char.fit_transform(train_df['text']).toarray()
 
-    print(train_data_word[:, n])
     n_best = int(len(vectorizer_char.idf_) * n_best_factor)
 
     idx_w = np.argsort(vectorizer_char.idf_)[:n_best]
@@ -43,7 +42,7 @@ def char_gram(train_df, test_df, config):
     ## scale text data for word n-gram model ##
     scaled_train_data_word = max_abs_scaler.fit_transform(train_data_word)
     scaled_test_data_word = max_abs_scaler.transform(test_data_word)
-    print(scaled_train_data_word[:, m])
+
     if use_LSA:
         # initialize truncated singular value decomposition
         svd = TruncatedSVD(n_components=63, algorithm='randomized', random_state=43)
