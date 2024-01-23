@@ -13,7 +13,7 @@ from sklearn.metrics import f1_score, confusion_matrix, ConfusionMatrixDisplay
 from df_creator import *
 import seaborn as sn
 from split import *
-#(test)6
+#(test)7
 def ngram(train_df, test_df, config):
     # shuffle training data
     train_df = train_df.sample(frac=1)
