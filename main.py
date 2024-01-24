@@ -17,7 +17,7 @@ if __name__ == '__main__':
     np.random.seed(random_seed)
     random.seed(random_seed)
 
-    df = read_files('txt', config)
+    df = create_df('txt', config)
     a = df['conversation'].unique()
     combinations = []
     for comb in itertools.combinations(a, 6):

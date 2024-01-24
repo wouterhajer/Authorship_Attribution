@@ -5,17 +5,25 @@ import pandas as pd
 import json
 
 
-def read_files(path, config):
+def create_df(path, config):
+    """
+    :param path: Location of the text files that are to be used
+    :param config: Dictionary containing globals, see config.json for all variables
+    :return: Dataframe containing column 'text' for all texts and 'author' with corresponding labels for the author
+
+    This function is modified per dataset to always output the expected dataframe
+    """
     # Reads all text files located in the 'path' and assigns them to 'label' class
     n_words = config["variables"]["nWords"]
 
     files = glob.glob(path + os.sep + '*.txt')
     texts = []
-    tot = 0
-    author = 0
-    for i, v in enumerate(files):
 
-        if v[-5] == '1' and 5 > int(v[6:9]) > 0 and v[9] != 'a':  # and int(v[6:9]) % 2 == 1:
+    # keep track of the author of the last document
+    author = 0
+
+    for i, v in enumerate(files):
+        if v[-5] == '1' and 31 > int(v[6:9]) > 0 and v[9] != 'a':
             odd = [1,2,3,4,5,6,7,8]
             even = [3,4,1,2,7,8,5,6]
 
@@ -56,7 +64,6 @@ def read_files(path, config):
                 words = words2
                 """
 
-                tot += len(words)
                 if len(words) < 100:
                     print(v)
                     f.close()
@@ -85,15 +92,15 @@ def read_files(path, config):
                 new_texts.append((' '.join(sentence[:]), author))
 
         df = pd.DataFrame(new_texts, columns=['text', 'author'])
-    # only keep authors with at least 7 recordings.
+    # only keep authors with at least 8 recordings to get a uniform training set
     v = df['author'].value_counts()
     df = df[df['author'].isin(v[v >= 8].index)]
     df = df.reset_index(drop=True)
-    print(df)
+
     return df
 
 
 if __name__ == '__main__':
     with open('config.json') as f:
         config = json.load(f)
-    print(read_files('txt', config)[:50])
+    print(create_df('txt', config)[:50])

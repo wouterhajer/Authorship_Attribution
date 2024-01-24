@@ -1,7 +1,3 @@
-import random
-import json
-import numpy as np
-import pandas as pd
 import time
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
@@ -11,14 +7,20 @@ from char_dist import *
 import matplotlib.pyplot as plt
 from sklearn.metrics import f1_score, confusion_matrix, ConfusionMatrixDisplay
 from df_creator import *
-import seaborn as sn
 from split import *
 
 def ngram(train_df, test_df, config):
-    # shuffle training data
+    """
+    :param train_df: Dataframe containing column 'text' for training texts and 'author' with labels for the author
+    :param test_df: Dataframe containing column 'text' for test texts and 'author' with labels for the author
+    :param config: Dictionary containing globals, see config.json for all variables
+    :return: returns lists containing the predicted authors using ensemble, char-ngrams and word-ngrams
+    Additionally a list with true authors and a list of booleans corresponding with the confidence of the prediction
+    """
+    # Shuffle the training data
     train_df = train_df.sample(frac=1)
 
-
+    # If masking is turned replace all words outside top n_masking with asteriks
     n_masking = config['masking']['nMasking']
     if bool(config['masking']['masking']):
         n_best_factor = 1
@@ -28,17 +30,19 @@ def ngram(train_df, test_df, config):
         train_df = mask(train_df, vocab_word, config)
         test_df = mask(test_df, vocab_word, config)
 
+    # If baseline is true a top 100 word-1-gram model is used
     if bool(config['baseline']):
         config['variables']['wordRange'] = [1, 1]
         vocab_word = extend_vocabulary([1, 1], train_df['text'], model='word')
         config['variables']['nBestFactorWord'] = 100 / len(vocab_word)
 
+    # Compute predictions using word and character n-gram models (additionaly one focussing on punctuation can be added)
     preds_word, probs_word = word_gram(train_df, test_df, config)
     preds_char, probs_char = char_gram(train_df, test_df, config)
     # preds_char_dist, probs_char_dist = char_dist_gram(train_df, test_df, config)
 
 
-    # Soft Voting procedure (combines the votes of the three individual classifier)
+    # Soft Voting procedure (combines the votes of the individual classifier)
     candidates = list(set(train_df['author']))
     n_authors = (len(candidates))
     test_authors = list(test_df['author'])
@@ -52,6 +56,7 @@ def ngram(train_df, test_df, config):
         avg_preds.append(candidates[ind_best])
 
         second = np.partition(text_probs, -2)[-2]
+        # If significant difference between first and second probability count as sure
         if text_probs.max() - second > 1 / n_authors:
             sure.append(True)
         else:
@@ -68,8 +73,8 @@ if __name__ == '__main__':
     np.random.seed(random_seed)
     random.seed(random_seed)
 
-    df = read_files('txt', config)
-    print(df)
+    df = create_df('txt', config)
+
     # Encode author labels
     label_encoder = LabelEncoder()
     df['author'] = label_encoder.fit_transform(df['author'])
