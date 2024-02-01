@@ -38,6 +38,15 @@ def word_gram(train_df, test_df, config):
     scaled_train_data_word = max_abs_scaler.fit_transform(train_data_word)
     scaled_test_data_word = max_abs_scaler.transform(test_data_word)
 
+    num_texts = np.zeros(len(train_data_word[0]))
+    for i in range(len(train_data_word)):
+        num_texts += np.array([1 if element > 0 else 0 for element in scaled_train_data_word[i]])
+
+    perc_texts = num_texts / len(train_data_word)
+    # print(np.array(scaled_train_data_word)[0,-30:])
+    # print((np.array(scaled_train_data_word)*np.exp(0.05*(1-1/perc_texts)))[0,-)
+    #scaled_train_data_word = list(np.array(scaled_train_data_word) * np.exp(0.1*(2-1/perc_texts)))
+
     if use_LSA:
         # initialize truncated singular value decomposition
         svd = TruncatedSVD(n_components=63, algorithm='randomized', random_state=42)

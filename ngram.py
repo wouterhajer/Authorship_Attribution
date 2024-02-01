@@ -20,7 +20,7 @@ def ngram(train_df, test_df, config):
     # Shuffle the training data
     train_df = train_df.sample(frac=1)
 
-    # If masking is turned replace all words outside top n_masking with asteriks
+    # If masking is turned on replace all words outside top n_masking with asterisks
     n_masking = config['masking']['nMasking']
     if bool(config['masking']['masking']):
         n_best_factor = 1
@@ -69,7 +69,7 @@ if __name__ == '__main__':
     with open('config.json') as f:
         config = json.load(f)
     # Random Seed at file level
-    random_seed = 37
+    random_seed = 38
     np.random.seed(random_seed)
     random.seed(random_seed)
 
@@ -126,9 +126,11 @@ if __name__ == '__main__':
             score_partner += 1
         else:
             score_rest += 1
-    print('Score = ' + str(score / len(sure)) +', random chance = '+ str(1/len(test_authors)))
+
+    print('Score = ' + str(score / len(sure)) + ', random chance = ' + str(1/len(test_authors)))
     print('Score partner = ' + str(score_partner / len(sure)) + ', random chance = ' + str(1 / len(test_authors)))
     print('Score rest = ' + str(score_rest / len(sure)) + ', random chance = ' + str(1-2 / len(test_authors)))
+
     """
     print('Percentage sure: ' + str(sure.count(True) / len(sure)))
     print('Score when sure: ' + str(score_sure / sure.count(True)))

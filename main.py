@@ -10,14 +10,20 @@ from ngram import ngram
 
 if __name__ == '__main__':
     start = time.time()
+
+    # Load config file
     with open('config.json') as f:
         config = json.load(f)
+
     # Random Seed at file level
     random_seed = 37
     np.random.seed(random_seed)
     random.seed(random_seed)
 
+    # Create dataframe from Frida database
     df = create_df('txt', config)
+
+    # Find all conversation numbers and make all combinations of 6 in train set, 2 in test set
     a = df['conversation'].unique()
     combinations = []
     for comb in itertools.combinations(a, 6):
@@ -33,22 +39,31 @@ if __name__ == '__main__':
     score_rest = 0
     score_sure = 0
 
+    # For every combination of conversations in train/test set, calculate the scores for true author,
+    # conversation partner and other speakers
     for i, comb in enumerate(combinations):
         print(i)
+
+        # Use random or deterministic split
         if bool(config['randomConversations']):
             train_df, test_df = train_test_split(df, test_size=0.25, stratify=df[['author']])
         else:
             train_df, test_df = split(df, 0.25, comb)
 
+        # Train SVMs, calculate predictions
         avg_preds, preds_char, preds_word, test_authors, sure = ngram(train_df, test_df, config)
+
+        # Inverse label encodings
         avg_preds = label_encoder.inverse_transform(avg_preds)
         preds_char = label_encoder.inverse_transform(preds_char)
         preds_word = label_encoder.inverse_transform(preds_word)
         test_authors = label_encoder.inverse_transform(test_authors)
 
+        # When using baseline, only word prediction counts
         if bool(config['baseline']):
             avg_preds = preds_word
 
+        # Calculate the scores
         for j in range(len(test_df['author'])):
             if test_authors[j] == avg_preds[j]:
                 score += 1
@@ -60,14 +75,18 @@ if __name__ == '__main__':
                 score_partner += 1
             else:
                 score_rest += 1
+
         n_prob = len(sure)
         n_auth = len(set(test_authors))
+
+        # Print the scores at this iteration
         print("Score = {:.4f}, random chance = {:.4f} ".format(score / n_prob/(i+1), 1 / n_auth))
         print("Score partner = {:.4f}, random chance = {:.4f} ".format(score_partner / n_prob / (i + 1), 1 / n_auth))
         print("Score rest = {:.4f}, random chance = {:.4f} ".format(score_rest / n_prob / (i + 1), 1-2 / n_auth))
 
     print('Included authors: ' + str(len(set(test_authors))))
 
+    """
     # Calculate F1 score
     f1 = f1_score(test_authors, avg_preds, average='macro')
     print('F1 Score average:' + str(f1))
@@ -80,8 +99,10 @@ if __name__ == '__main__':
 
     f1 = f1_score(test_authors, preds_word, average='macro')
     print('F1 Score word:' + str(f1) + '\n')
-
-    """
+    
+    
+    
+    # Print whether or not the model was sure
     print('Percentage sure: ' + str(sure.count(True) / len(sure)))
     print('Score when sure: ' + str(score_sure / sure.count(True)))
     indeces = [i for i, x in enumerate(sure) if x]
@@ -91,6 +112,6 @@ if __name__ == '__main__':
     f1 = f1_score([test_authors[x] for x in indeces], [avg_preds[x] for x in indeces], average='macro')
     print('Macro F1 when unsure:' + str(f1) + '\n')
     """
-
+    # Print duration
     print('Total time: ' + str(time.time() - start) + ' seconds')
 
