@@ -1,7 +1,7 @@
 def mask(df, vocab_word, config):
+    df = df.reset_index(drop=True)
     single_masking = bool(config['masking']['singleMasking'])
     for k, text in enumerate(df['text']):
-        print(len(text))
         i = 0
         while i < len(text):
             if not text[i].isalpha():
@@ -14,11 +14,15 @@ def mask(df, vocab_word, config):
                         if j == len(text):
                             break
                 word = text[i:j]
-                if word not in vocab_word:
+                if word.lower() not in vocab_word:
                     if single_masking:
-                        text = text[:i] + '*' + text[j:]
+                        text = text[:i] + 'q' + text[j:]
+                        i += 1
                     else:
-                        text = text[:i] + '*' * len(word) + text[j:]
-                i = j
-        df['text'].iloc[k] = text
+                        text = text[:i] + 'q' * len(word) + text[j:]
+                        i = j
+                else:
+                    i = j
+        df.loc[k, 'text'] = text
+    #print(df)
     return df

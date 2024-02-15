@@ -9,11 +9,12 @@ from sklearn.metrics import f1_score, confusion_matrix, ConfusionMatrixDisplay
 from df_creator import *
 from split import *
 
-def ngram(train_df, test_df, config):
+def ngram(train_df, test_df, config, vocab_word=0):
     """
     :param train_df: Dataframe containing column 'text' for training texts and 'author' with labels for the author
     :param test_df: Dataframe containing column 'text' for test texts and 'author' with labels for the author
     :param config: Dictionary containing globals, see config.json for all variables
+    :param background: list of most frequents words in background population if available
     :return: returns lists containing the predicted authors using ensemble, char-ngrams and word-ngrams
     Additionally a list with true authors and a list of booleans corresponding with the confidence of the prediction
     """
@@ -23,10 +24,13 @@ def ngram(train_df, test_df, config):
     # If masking is turned on replace all words outside top n_masking with asterisks
     n_masking = config['masking']['nMasking']
     if bool(config['masking']['masking']):
-        n_best_factor = 1
-        vocab_word = extend_vocabulary([1, 1], train_df['text'], model='word')
-        vocab_word = vocab_word[:n_masking]
+        config['masking']['nBestFactorWord'] = 1
 
+        if vocab_word == 0:
+            vocab_word = extend_vocabulary([1, 1], train_df['text'], model='word')
+        vocab_word = vocab_word[:n_masking]
+        vocab_word = [x.lower() for x in vocab_word]
+        #print(vocab_word)
         train_df = mask(train_df, vocab_word, config)
         test_df = mask(test_df, vocab_word, config)
 
@@ -73,18 +77,21 @@ if __name__ == '__main__':
     np.random.seed(random_seed)
     random.seed(random_seed)
 
-    df = create_df('txt', config)
+    full_df = create_df('txt', config)
 
     # Encode author labels
     label_encoder = LabelEncoder()
-    df['author'] = label_encoder.fit_transform(df['author'])
+    full_df['author'] = label_encoder.fit_transform(full_df['author'])
+
+    # Limit the authors to nAuthors
+    df = full_df.loc[full_df['author'] < config['variables']['nAuthors']]
 
     if bool(config['randomConversations']):
         train_df, test_df = train_test_split(df, test_size=0.25, stratify=df[['author']])
     else:
         train_df, test_df = split(df, 0.25)
 
-    avg_preds, preds_char, preds_word, test_authors, sure = ngram(train_df, test_df, config)
+    avg_preds, preds_char, preds_word, test_authors, sure = ngram(train_df, test_df, config, full_df)
 
     avg_preds = label_encoder.inverse_transform(avg_preds)
     preds_char = label_encoder.inverse_transform(preds_char)

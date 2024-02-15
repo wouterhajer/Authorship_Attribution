@@ -7,6 +7,7 @@ from df_creator import *
 from split import *
 import itertools
 from ngram import ngram
+from vocabulary import *
 
 if __name__ == '__main__':
     start = time.time()
@@ -21,18 +22,23 @@ if __name__ == '__main__':
     random.seed(random_seed)
 
     # Create dataframe from Frida database
-    df = create_df('txt', config)
+    full_df = create_df('txt', config)
 
+    # Encode author labels
+    label_encoder = LabelEncoder()
+    full_df['author'] = label_encoder.fit_transform(full_df['author'])
+
+    # Limit the authors to nAuthors
+    df = full_df.loc[full_df['author'] < config['variables']['nAuthors']]
+
+    background_vocab = extend_vocabulary([1, 1], full_df['text'], model='word')
+    print(background_vocab[:100])
     # Find all conversation numbers and make all combinations of 6 in train set, 2 in test set
     a = df['conversation'].unique()
     combinations = []
     for comb in itertools.combinations(a, 6):
         rest = list(set(a) - set(comb))
         combinations.append([list(comb), list(rest)])
-
-    # Encode author labels
-    label_encoder = LabelEncoder()
-    df['author'] = label_encoder.fit_transform(df['author'])
 
     score = 0
     score_partner = 0
@@ -48,10 +54,10 @@ if __name__ == '__main__':
         if bool(config['randomConversations']):
             train_df, test_df = train_test_split(df, test_size=0.25, stratify=df[['author']])
         else:
-            train_df, test_df = split(df, 0.25, comb)
+            train_df, test_df = split(df, 0.25, comb, confusion=bool(config['confusion']))
 
         # Train SVMs, calculate predictions
-        avg_preds, preds_char, preds_word, test_authors, sure = ngram(train_df, test_df, config)
+        avg_preds, preds_char, preds_word, test_authors, sure = ngram(train_df, test_df, config, background_vocab)
 
         # Inverse label encodings
         avg_preds = label_encoder.inverse_transform(avg_preds)
@@ -80,9 +86,9 @@ if __name__ == '__main__':
         n_auth = len(set(test_authors))
 
         # Print the scores at this iteration
-        print("Score = {:.4f}, random chance = {:.4f} ".format(score / n_prob/(i+1), 1 / n_auth))
+        print("Score = {:.4f}, random chance = {:.4f} ".format(score / n_prob / (i + 1), 1 / n_auth))
         print("Score partner = {:.4f}, random chance = {:.4f} ".format(score_partner / n_prob / (i + 1), 1 / n_auth))
-        print("Score rest = {:.4f}, random chance = {:.4f} ".format(score_rest / n_prob / (i + 1), 1-2 / n_auth))
+        print("Score rest = {:.4f}, random chance = {:.4f} ".format(score_rest / n_prob / (i + 1), 1 - 2 / n_auth))
 
     print('Included authors: ' + str(len(set(test_authors))))
 
@@ -114,4 +120,3 @@ if __name__ == '__main__':
     """
     # Print duration
     print('Total time: ' + str(time.time() - start) + ' seconds')
-
