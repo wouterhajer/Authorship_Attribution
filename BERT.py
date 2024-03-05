@@ -196,7 +196,7 @@ for epoch in range(epochs):
 
     average_loss = total_loss / len(train_dataloader)
     print(f"Epoch {epoch + 1}/{epochs}, Average Loss: {average_loss}")
-    if epoch % 5 == 4:
+    if epoch % 2 == 1:
         print('validation set')
         preds = validate(model, val_encodings, encoded_known_authors)
         avg_preds = label_encoder.inverse_transform(preds)
