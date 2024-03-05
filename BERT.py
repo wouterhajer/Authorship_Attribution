@@ -34,75 +34,22 @@ from torch.utils.data import DataLoader, TensorDataset, Dataset
 import torch.nn as nn
 from masking import *
 from BERT_meanpooling import *
-
+from df_creator_PAN import *
+from df_creator import *
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(device)
 ''' 
 model = BertModel.from_pretrained('bert-base-cased')
 model.save_pretrained("BERTmodels/bert-base-cased")
 '''
-
-
-def read_files(path: str, label: str):
-    # Reads all text files located in the 'path' and assigns them to 'label' class
-    files = sorted(glob.glob(path + os.sep + label + os.sep + '*.txt'))
-    texts = []
-    for i, v in enumerate(files):
-        f = codecs.open(v, 'r', encoding='utf-8')
-        texts.append((f.read(), label))
-        f.close()
-    return texts
-
-
-with open('config.json') as f:
-    config = json.load(f)
-
 # get directory and specify problem
 path = 'Pan2019'
 problem = 'problem00001'
 
-# Reading information about the problem
-infoproblem = path + os.sep + problem + os.sep + 'problem-info.json'
-candidates = []
-with open(infoproblem, 'r') as f:
-    fj = json.load(f)
-    unk_folder = fj['unknown-folder']
-    for attrib in fj['candidate-authors']:
-        candidates.append(attrib['author-name'])
+with open('config.json') as f:
+    config = json.load(f)
 
-# building training set
-train_docs = []
-for candidate in candidates:
-    train_docs.extend(read_files(path + os.sep + problem, candidate))
-
-# Convert to dataframe
-train_df = pd.DataFrame(train_docs, columns=['text', 'author'])
-
-# Shuffle training data
-train_df = train_df.sample(frac=1)
-
-# Building test set
-test_docs = read_files(path + os.sep + problem, unk_folder)
-test_texts = [text for (text, label) in test_docs]
-
-# Make list of which test texts the author is known
-with open(path + os.sep + problem + os.sep + 'ground-truth.json') as f:
-    truth = json.load(f)
-truth_list = []
-known = []
-for i, j in enumerate(truth['ground_truth']):
-    # Check if authorname is not <unknown>
-    if j['true-author'][-1] != '>':
-        truth_list.append(j['true-author'])
-        known.append(i)
-    else:
-        truth_list.append(-1)
-
-# Clean the test texts by removing the ones with unknown author
-known_authors = [truth_list[x] for x in known]
-test_texts = [test_texts[x] for x in known]
-test = [(test_texts[i], known_authors[i]) for i in range(len(test_texts))]
-test_df = pd.DataFrame(test, columns=['text', 'author'])
+train_df, test_df = create_df_PAN(path,problem)
 
 if bool(config['masking']['masking']):
     vocab_word = []
@@ -121,18 +68,17 @@ encodings = transform_list_of_texts(train_df['text'], tokenizer, 510, 256, 256, 
                                     device=device)
 val_encodings = transform_list_of_texts(test_df['text'], tokenizer, 510, 256, 256, \
                                         device=device)
+
 # Encode author labels
 label_encoder = LabelEncoder()
 train_df['author_id'] = label_encoder.fit_transform(train_df['author'])
-encoded_known_authors = label_encoder.transform(known_authors)
+encoded_known_authors = label_encoder.transform(test_df['author'])
 train_labels = torch.tensor(train_df['author_id'], dtype=torch.long).to(device)
-print(encodings)
+
 # Define the model for fine-tuning
 model = BertMeanPoolingClassifier(N_classes=9, dropout=config['BERT']['dropout'])
 model.to(device)
 
-test = model(encodings[0])
-print(test)
 dataset = CustomDataset(encodings, train_labels)
 # Set up DataLoader for training
 batch_size = 1
@@ -173,8 +119,8 @@ for epoch in range(epochs):
         print('validation set')
         preds = validate(model, val_encodings, encoded_known_authors)
         avg_preds = label_encoder.inverse_transform(preds)
-        author_number = [author[-2:] for author in known_authors]
-        conf = confusion_matrix(known_authors, avg_preds, normalize='true')
+        author_number = [author[-2:] for author in test_df['author']]
+        conf = confusion_matrix(test_df['author'], avg_preds, normalize='true')
         cmd = ConfusionMatrixDisplay(conf, display_labels=sorted(set(author_number)))
         cmd.plot()
         plt.show()
