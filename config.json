@@ -13,13 +13,13 @@
     "useLSA": 1
   },
   "masking": {
-    "masking": 1,
+    "masking": 0,
     "nMasking": 10000,
     "singleMasking": 1
   },
   "BERT": {
     "epochs": 20,
-    "dropout": 0.1,
+    "dropout": 0.5,
     "learningRate": 1e-5
   },
   "Pan2019": {
