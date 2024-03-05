@@ -104,8 +104,6 @@ test_texts = [test_texts[x] for x in known]
 test = [(test_texts[i], known_authors[i]) for i in range(len(test_texts))]
 test_df = pd.DataFrame(test, columns=['text', 'author'])
 
-tokenizer = BertTokenizer.from_pretrained('bert-base-cased')  # RobertaTokenizer.from_pretrained('roberta-base') #
-
 if bool(config['masking']['masking']):
     vocab_word = []
     with open(path + os.sep + '5000English.csv', newline='') as csvfile:
@@ -118,6 +116,7 @@ if bool(config['masking']['masking']):
     print(train_df['text'][0])
     test_df = mask(test_df, vocab_word, config)
 
+tokenizer = BertTokenizer.from_pretrained('bert-base-cased')  # RobertaTokenizer.from_pretrained('roberta-base') #
 encodings = transform_list_of_texts(train_df['text'], tokenizer, 510, 256, 256, \
                                     device=device)
 val_encodings = transform_list_of_texts(test_df['text'], tokenizer, 510, 256, 256, \
@@ -170,7 +169,7 @@ for epoch in range(epochs):
 
     average_loss = total_loss / len(train_dataloader)
     print(f"Epoch {epoch + 1}/{epochs}, Average Loss: {average_loss}")
-    if epoch % 2 == 1:
+    if epoch % 5 == 4:
         print('validation set')
         preds = validate(model, val_encodings, encoded_known_authors)
         avg_preds = label_encoder.inverse_transform(preds)
