@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import f1_score, confusion_matrix, ConfusionMatrixDisplay
 from df_creator import *
 from split import *
+import csv
 
 def ngram(train_df, test_df, config, vocab_word=0):
     """
@@ -66,19 +67,35 @@ def ngram(train_df, test_df, config, vocab_word=0):
         else:
             sure.append(False)
 
-    return avg_preds, preds_char, preds_word, test_authors, sure
+    return avg_preds, preds_char, preds_word, test_authors, sure  # , avg_probs
 
 if __name__ == '__main__':
     start = time.time()
     with open('config.json') as f:
         config = json.load(f)
+
     # Random Seed at file level
-    random_seed = 38
+    random_seed = 8
     np.random.seed(random_seed)
     random.seed(random_seed)
 
     full_df = create_df('txt', config)
+    background_vocab = extend_vocabulary([1, 1], full_df['text'], model='word')
+    # Background vocabulary based on dutch subtitles, lowers performance
+    """
+    vocab_word = []
+    with open('Frequenties.csv', newline='') as csvfile:
+        vocab_words = csv.reader(csvfile, delimiter=',', quotechar='|')
+        i = 0
+        for row in vocab_words:
 
+            vocab_word.append(row[0].lower())
+            if i > 50000:
+                break
+            i += 1
+    print(vocab_word[900:1000])
+    background_vocab = vocab_word[1:]
+    """
     # Encode author labels
     label_encoder = LabelEncoder()
     full_df['author'] = label_encoder.fit_transform(full_df['author'])
@@ -89,9 +106,9 @@ if __name__ == '__main__':
     if bool(config['randomConversations']):
         train_df, test_df = train_test_split(df, test_size=0.25, stratify=df[['author']])
     else:
-        train_df, test_df = split(df, 0.25)
+        train_df, test_df = split(df, 0.25, confusion = bool(config['confusion']))
 
-    avg_preds, preds_char, preds_word, test_authors, sure = ngram(train_df, test_df, config, full_df)
+    avg_preds, preds_char, preds_word, test_authors, sure = ngram(train_df, test_df, config, background_vocab)
 
     avg_preds = label_encoder.inverse_transform(avg_preds)
     preds_char = label_encoder.inverse_transform(preds_char)
@@ -99,7 +116,7 @@ if __name__ == '__main__':
     test_authors = label_encoder.inverse_transform(test_authors)
 
     # Indices where both lists are different
-    index = [i for i, x in enumerate(zip(avg_preds,test_authors)) if x[0] != x[1]]
+    index = [i for i, x in enumerate(zip(avg_preds, test_authors)) if x[0] != x[1]]
     print([avg_preds[x] for x in index])
     print([test_authors[x] for x in index])
     print('Included authors: ' + str(len(set(test_authors))))
@@ -134,9 +151,9 @@ if __name__ == '__main__':
         else:
             score_rest += 1
 
-    print('Score = ' + str(score / len(sure)) + ', random chance = ' + str(1/len(test_authors)))
-    print('Score partner = ' + str(score_partner / len(sure)) + ', random chance = ' + str(1 / len(test_authors)))
-    print('Score rest = ' + str(score_rest / len(sure)) + ', random chance = ' + str(1-2 / len(test_authors)))
+    print('Score = ' + str(score / len(sure)) + ', random chance = ' + str(1/len(set(test_authors))))
+    print('Score partner = ' + str(score_partner / len(sure)) + ', random chance = ' + str(1 / len(set(test_authors))))
+    print('Score rest = ' + str(score_rest / len(sure)) + ', random chance = ' + str(1-2 / len(set(test_authors))))
 
     """
     print('Percentage sure: ' + str(sure.count(True) / len(sure)))

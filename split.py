@@ -23,6 +23,9 @@ def split(df, p, conversations=None, confusion=False):
     # Split the dataframe
     train_df = df[df['conversation'].isin(train_conv)]
     test_df = df[df['conversation'].isin(test_conv)]
+
+    # If confusion is true, ensure conversation of odd speakers in test set are in training set of even speakers,
+    # and vice versa
     if confusion:
         odd_df = df.loc[df['author'] % 2 == 1]
         even_df = df.loc[df['author'] % 2 == 0]
@@ -34,7 +37,6 @@ def split(df, p, conversations=None, confusion=False):
         train_df = pd.concat([train_df_odd, train_df_even])
         test_df = pd.concat([test_df_odd, test_df_even])
     return train_df, test_df
-
 
 def frida_convert(conv):
     """
@@ -56,3 +58,4 @@ def frida_convert(conv):
     a = [1, 2, 3, 4, 5, 6, 7, 8]
     train_conv = list(set(a) - set(test_conv))
     return train_conv, test_conv
+

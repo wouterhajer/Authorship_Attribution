@@ -1,6 +1,6 @@
 {
   "variables": {
-    "nWords": 400,
+    "nWords": 100,
     "nAuthors": 50,
     "trueLength": 0,
     "concatenate": 0,
@@ -13,11 +13,11 @@
     "useLSA": 1
   },
   "masking": {
-    "masking":  1,
+    "masking": 1,
     "nMasking": 1000,
     "singleMasking": 1
   },
   "baseline": 0,
   "randomConversations": 0,
-  "confusion": 1
+  "confusion": 0
 }

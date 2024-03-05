@@ -8,6 +8,7 @@ from split import *
 import itertools
 from ngram import ngram
 from vocabulary import *
+import csv
 
 if __name__ == '__main__':
     start = time.time()
@@ -32,7 +33,23 @@ if __name__ == '__main__':
     df = full_df.loc[full_df['author'] < config['variables']['nAuthors']]
 
     background_vocab = extend_vocabulary([1, 1], full_df['text'], model='word')
+
+    """
+    vocab_word = []
+    with open('Frequenties.csv', newline='') as csvfile:
+        vocab_words = csv.reader(csvfile, delimiter=',', quotechar='|')
+        i = 0
+        for row in vocab_words:
+
+            vocab_word.append(row[0].lower())
+            if i > 50000:
+                break
+            i += 1
+    print(vocab_word[900:1000])
+    background_vocab = vocab_word[1:]
+    """
     print(background_vocab[:100])
+    print(background_vocab[400:500])
     # Find all conversation numbers and make all combinations of 6 in train set, 2 in test set
     a = df['conversation'].unique()
     combinations = []

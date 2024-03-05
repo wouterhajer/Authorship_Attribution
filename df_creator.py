@@ -41,7 +41,6 @@ def create_df(path, config):
             else:
                 conversation = even[j]
 
-
             f = codecs.open(v, 'r', encoding='utf-8')
             label = int(v[6:9])
             text = f.read()
