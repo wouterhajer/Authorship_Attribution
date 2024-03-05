@@ -7,13 +7,13 @@ from transformers import BatchEncoding, PreTrainedTokenizerBase
 # Returns list
 
 def transform_list_of_texts(
-    texts: list[str],
-    tokenizer: PreTrainedTokenizerBase,
-    chunk_size: int,
-    stride: int,
-    minimal_chunk_length: int,
-    maximal_text_length: Optional[int] = None,
-    device: Optional[torch.device] = 'cpu'
+        texts: list[str],
+        tokenizer: PreTrainedTokenizerBase,
+        chunk_size: int,
+        stride: int,
+        minimal_chunk_length: int,
+        maximal_text_length: Optional[int] = None,
+        device: Optional[torch.device] = 'cpu'
 ) -> BatchEncoding:
     model_inputs = [
         transform_single_text(text, tokenizer, chunk_size, stride, minimal_chunk_length, maximal_text_length)
@@ -22,16 +22,26 @@ def transform_list_of_texts(
     input_ids = [model_input[0].to(device) for model_input in model_inputs]
     attention_mask = [model_input[1].to(device) for model_input in model_inputs]
     tokens = {"input_ids": input_ids, "attention_mask": attention_mask}
-    return BatchEncoding(tokens)
+    list = restructure_texts(BatchEncoding(tokens), device)
+    return list
+
+
+def restructure_texts(embeddings, device):
+    encodings = []
+    zeros = [0] * 512
+    for i in range(len(embeddings['input_ids'])):
+        encodings.append({'input_ids': embeddings['input_ids'][i], 'attention_mask': embeddings['attention_mask'][i],
+                          'token_type_ids': torch.tensor([zeros] * len(embeddings['input_ids'][i])).to(device)})
+    return encodings
 
 
 def transform_single_text(
-    text: str,
-    tokenizer: PreTrainedTokenizerBase,
-    chunk_size: int,
-    stride: int,
-    minimal_chunk_length: int,
-    maximal_text_length: Optional[int],
+        text: str,
+        tokenizer: PreTrainedTokenizerBase,
+        chunk_size: int,
+        stride: int,
+        minimal_chunk_length: int,
+        maximal_text_length: Optional[int],
 ) -> tuple[Tensor, Tensor]:
     """Transforms (the entire) text to model input of BERT model."""
     if maximal_text_length:
@@ -52,7 +62,7 @@ def tokenize_whole_text(text: str, tokenizer: PreTrainedTokenizerBase) -> BatchE
 
 
 def tokenize_text_with_truncation(
-    text: str, tokenizer: PreTrainedTokenizerBase, maximal_text_length: int
+        text: str, tokenizer: PreTrainedTokenizerBase, maximal_text_length: int
 ) -> BatchEncoding:
     """Tokenizes the text with truncation to maximal_text_length and without special tokens."""
     tokens = tokenizer(
@@ -62,10 +72,10 @@ def tokenize_text_with_truncation(
 
 
 def split_tokens_into_smaller_chunks(
-    tokens: BatchEncoding,
-    chunk_size: int,
-    stride: int,
-    minimal_chunk_length: int,
+        tokens: BatchEncoding,
+        chunk_size: int,
+        stride: int,
+        minimal_chunk_length: int,
 ) -> tuple[list[Tensor], list[Tensor]]:
     """Splits tokens into overlapping chunks with given size and stride."""
     input_id_chunks = split_overlapping(tokens["input_ids"][0], chunk_size, stride, minimal_chunk_length)
@@ -108,11 +118,8 @@ def stack_tokens_from_all_chunks(input_id_chunks: list[Tensor], mask_chunks: lis
 
 def split_overlapping(tensor: Tensor, chunk_size: int, stride: int, minimal_chunk_length: int) -> list[Tensor]:
     """Helper function for dividing 1-dimensional tensors into overlapping chunks."""
-    result = [tensor[i : i + chunk_size] for i in range(0, len(tensor), stride)]
+    result = [tensor[i: i + chunk_size] for i in range(0, len(tensor), stride)]
     if len(result) > 1:
         # ignore chunks with less than minimal_length number of tokens
         result = [x for x in result if len(x) >= minimal_chunk_length]
     return result
-
-
-

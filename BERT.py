@@ -42,6 +42,7 @@ model = BertModel.from_pretrained('bert-base-cased')
 model.save_pretrained("BERTmodels/bert-base-cased")
 '''
 
+
 def read_files(path: str, label: str):
     # Reads all text files located in the 'path' and assigns them to 'label' class
     files = sorted(glob.glob(path + os.sep + label + os.sep + '*.txt'))
@@ -103,7 +104,6 @@ test_texts = [test_texts[x] for x in known]
 test = [(test_texts[i], known_authors[i]) for i in range(len(test_texts))]
 test_df = pd.DataFrame(test, columns=['text', 'author'])
 
-
 tokenizer = BertTokenizer.from_pretrained('bert-base-cased')  # RobertaTokenizer.from_pretrained('roberta-base') #
 
 if bool(config['masking']['masking']):
@@ -113,47 +113,21 @@ if bool(config['masking']['masking']):
         for row in vocab_words:
             vocab_word.append(row[0].lower())
     print(vocab_word[:100])
-    vocab_word = vocab_word[1:config['masking']['nMasking']+1]
+    vocab_word = vocab_word[1:config['masking']['nMasking'] + 1]
     train_df = mask(train_df, vocab_word, config)
     print(train_df['text'][0])
     test_df = mask(test_df, vocab_word, config)
 
-train_embeddings = transform_list_of_texts(train_df['text'], tokenizer, 510, 256, 256,\
-                                           device = device)
-test_embeddings = transform_list_of_texts(test_df['text'], tokenizer, 510, 256, 256,\
-                                          device = device)
+encodings = transform_list_of_texts(train_df['text'], tokenizer, 510, 256, 256, \
+                                    device=device)
+val_encodings = transform_list_of_texts(test_df['text'], tokenizer, 510, 256, 256, \
+                                        device=device)
 # Encode author labels
 label_encoder = LabelEncoder()
 train_df['author_id'] = label_encoder.fit_transform(train_df['author'])
 encoded_known_authors = label_encoder.transform(known_authors)
 train_labels = torch.tensor(train_df['author_id'], dtype=torch.long).to(device)
-
-input_ids = train_embeddings['input_ids']
-attention_mask = train_embeddings['attention_mask']
-
-# Create a TensorDataset for training
-# dataset = TensorDataset(input_ids, attention_mask, torch.tensor(labels))
-print(train_docs[0])
-encodings = []
-for i, text in enumerate(train_docs):
-    encodings.append(tokenizer(text, truncation=True, padding=True, max_length=512, return_tensors='pt').to(device))
-
-zeros = [0] * 512
-for i in range(len(encodings)):
-    encodings[i]['input_ids'] = train_embeddings['input_ids'][i]
-    encodings[i]['attention_mask'] = train_embeddings['attention_mask'][i]
-    encodings[i]['token_type_ids'] = torch.tensor([zeros] * len(train_embeddings['input_ids'][i])).to(device)
-
-val_encodings = []
-for i, text in enumerate(test_texts):
-    val_encodings.append(tokenizer(text, truncation=True, padding=True, max_length=512, return_tensors='pt').to(device))
-zeros = [0] * 512
-for i in range(len(encodings)):
-    val_encodings[i]['input_ids'] = test_embeddings['input_ids'][i]
-    val_encodings[i]['attention_mask'] = test_embeddings['attention_mask'][i]
-    val_encodings[i]['token_type_ids'] = torch.tensor([zeros] * len(test_embeddings['input_ids'][i])).to(device)
-print(encodings[0])
-
+print(encodings)
 # Define the model for fine-tuning
 model = BertMeanPoolingClassifier(N_classes=9, dropout=config['BERT']['dropout'])
 model.to(device)
