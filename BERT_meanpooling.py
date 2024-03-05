@@ -5,17 +5,11 @@ from torch.utils.data import Dataset
 from sklearn.metrics import f1_score
 
 class BertMeanPoolingClassifier(nn.Module):
-    def __init__(self, num_classes):
+    def __init__(self, N_classes, dropout=0.5):
         super(BertMeanPoolingClassifier, self).__init__()
-        self.bert_model = BertModel.from_pretrained('bert-base-cased')
-        self.dropout = nn.Dropout(0.5)
-        self.dense2 = nn.Linear(512, 1)
-        self.flatten = nn.Flatten()
-        self.dense1 = nn.Linear(768, num_classes)  # Assuming BERT hidden size is 768 for base model
-        self.softmax = nn.Softmax(dim=0)
-        self.dense = nn.Linear(in_features=768, out_features=9)
-
-
+        self.bert_model = BertModel.from_pretrained('BERTmodels/bert-base-cased')
+        self.dropout = nn.Dropout(dropout)
+        self.dense = nn.Linear(in_features=768, out_features=N_classes)
     def forward(self, encodings):
         # Obtain BERT hidden states
         inputs = self.bert_model(**encodings)['last_hidden_state']
@@ -25,10 +19,7 @@ class BertMeanPoolingClassifier(nn.Module):
 
         # Apply dropout and pass through dense layer
         pooled_output = self.dropout(pooled_output)
-        #input_data_flattened = pooled_output.view(1, -1)
         logits = self.dense(pooled_output[0])
-
-        #logits = self.dropout(logits)
         return logits
 
 class CustomDataset(Dataset):

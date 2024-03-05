@@ -9,7 +9,8 @@ import codecs
 import matplotlib.pyplot as plt
 import numpy as np
 import random
-from transformers import BertTokenizer, BertForSequenceClassification, RobertaTokenizer, RobertaForSequenceClassification
+from transformers import BertTokenizer, BertForSequenceClassification, RobertaTokenizer, \
+    RobertaForSequenceClassification
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.model_selection import train_test_split
@@ -32,33 +33,41 @@ from transformers import BertTokenizer, BertModel, AdamW
 from torch.utils.data import DataLoader, TensorDataset, Dataset
 import torch.nn as nn
 from masking import *
+from BERT_meanpooling import *
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(device)
+''' 
+model = BertModel.from_pretrained('bert-base-cased')
+model.save_pretrained("BERTmodels/bert-base-cased")
+'''
 
 def read_files(path: str, label: str):
     # Reads all text files located in the 'path' and assigns them to 'label' class
-    files = sorted(glob.glob(path+os.sep+label+os.sep+'*.txt'))
-    texts=[]
-    for i,v in enumerate(files):
-        f=codecs.open(v,'r',encoding='utf-8')
-        texts.append((f.read(),label))
+    files = sorted(glob.glob(path + os.sep + label + os.sep + '*.txt'))
+    texts = []
+    for i, v in enumerate(files):
+        f = codecs.open(v, 'r', encoding='utf-8')
+        texts.append((f.read(), label))
         f.close()
     return texts
+
 
 with open('config.json') as f:
     config = json.load(f)
 
 # get directory and specify problem
-path = '.'
-problem = 'problem00002'
+path = 'Pan2019'
+problem = 'problem00001'
 
 # Reading information about the problem
-infoproblem = path+os.sep+problem+os.sep+'problem-info.json'
+infoproblem = path + os.sep + problem + os.sep + 'problem-info.json'
 candidates = []
 with open(infoproblem, 'r') as f:
-  fj = json.load(f)
-  unk_folder = fj['unknown-folder']
-  for attrib in fj['candidate-authors']:
-    candidates.append(attrib['author-name'])
+    fj = json.load(f)
+    unk_folder = fj['unknown-folder']
+    for attrib in fj['candidate-authors']:
+        candidates.append(attrib['author-name'])
 
 # building training set
 train_docs = []
@@ -76,13 +85,13 @@ test_docs = read_files(path + os.sep + problem, unk_folder)
 test_texts = [text for (text, label) in test_docs]
 
 # Make list of which test texts the author is known
-with open(path+os.sep+problem+os.sep+'ground-truth.json') as f:
+with open(path + os.sep + problem + os.sep + 'ground-truth.json') as f:
     truth = json.load(f)
 truth_list = []
 known = []
-for i,j in enumerate(truth['ground_truth']):
+for i, j in enumerate(truth['ground_truth']):
     # Check if authorname is not <unknown>
-    if j['true-author'][-1 != '>':
+    if j['true-author'][-1] != '>':
         truth_list.append(j['true-author'])
         known.append(i)
     else:
@@ -92,84 +101,76 @@ for i,j in enumerate(truth['ground_truth']):
 known_authors = [truth_list[x] for x in known]
 test_texts = [test_texts[x] for x in known]
 test = [(test_texts[i], known_authors[i]) for i in range(len(test_texts))]
-test_df = pd.DataFrame(test , columns=['text', 'author'])
+test_df = pd.DataFrame(test, columns=['text', 'author'])
 
-# Use the fuctions above to generate embeddings for all texts in the training Dataframe
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-tokenizer = BertTokenizer.from_pretrained('bert-base-cased') #RobertaTokenizer.from_pretrained('roberta-base') #
 
-vocab_word = []
-with open(path+os.sep+'5000English.csv', newline='') as csvfile:
-    vocab_words = csv.reader(csvfile, delimiter=',', quotechar='|')
-    for row in vocab_words:
-        vocab_word.append(row[0].lower())
-print(vocab_word[:100])
-vocab_word = vocab_word[:2000]
-
+tokenizer = BertTokenizer.from_pretrained('bert-base-cased')  # RobertaTokenizer.from_pretrained('roberta-base') #
 
 if bool(config['masking']['masking']):
+    vocab_word = []
+    with open(path + os.sep + '5000English.csv', newline='') as csvfile:
+        vocab_words = csv.reader(csvfile, delimiter=',', quotechar='|')
+        for row in vocab_words:
+            vocab_word.append(row[0].lower())
+    print(vocab_word[:100])
+    vocab_word = vocab_word[1:config['masking']['nMasking']+1]
     train_df = mask(train_df, vocab_word, config)
     print(train_df['text'][0])
     test_df = mask(test_df, vocab_word, config)
 
-
-train_embeddings = transform_list_of_texts(train_df['text'], tokenizer, 510,256,256)
-test_embeddings = transform_list_of_texts(test_df['text'], tokenizer, 510,256,256)
+train_embeddings = transform_list_of_texts(train_df['text'], tokenizer, 510, 256, 256,\
+                                           device = device)
+test_embeddings = transform_list_of_texts(test_df['text'], tokenizer, 510, 256, 256,\
+                                          device = device)
 # Encode author labels
 label_encoder = LabelEncoder()
 train_df['author_id'] = label_encoder.fit_transform(train_df['author'])
 encoded_known_authors = label_encoder.transform(known_authors)
 train_labels = torch.tensor(train_df['author_id'], dtype=torch.long).to(device)
 
-
-
-
-
-
 input_ids = train_embeddings['input_ids']
 attention_mask = train_embeddings['attention_mask']
 
 # Create a TensorDataset for training
-#dataset = TensorDataset(input_ids, attention_mask, torch.tensor(labels))
+# dataset = TensorDataset(input_ids, attention_mask, torch.tensor(labels))
 print(train_docs[0])
-text = ['a short text string']
 encodings = []
 for i, text in enumerate(train_docs):
-  encodings.append(tokenizer(text, truncation=True, padding=True, max_length=512, return_tensors='pt').to(device))
+    encodings.append(tokenizer(text, truncation=True, padding=True, max_length=512, return_tensors='pt').to(device))
 
-zeros = [0]*512
+zeros = [0] * 512
 for i in range(len(encodings)):
-  encodings[i]['input_ids'] = train_embeddings['input_ids'][i]
-  encodings[i]['attention_mask'] = train_embeddings['attention_mask'][i]
-  encodings[i]['token_type_ids'] = torch.tensor([zeros]* len(train_embeddings['input_ids'][i])).to(device)
+    encodings[i]['input_ids'] = train_embeddings['input_ids'][i]
+    encodings[i]['attention_mask'] = train_embeddings['attention_mask'][i]
+    encodings[i]['token_type_ids'] = torch.tensor([zeros] * len(train_embeddings['input_ids'][i])).to(device)
 
 val_encodings = []
 for i, text in enumerate(test_texts):
-  val_encodings.append(tokenizer(text, truncation=True, padding=True, max_length=512, return_tensors='pt').to(device))
-zeros = [0]*512
+    val_encodings.append(tokenizer(text, truncation=True, padding=True, max_length=512, return_tensors='pt').to(device))
+zeros = [0] * 512
 for i in range(len(encodings)):
-  val_encodings[i]['input_ids'] = test_embeddings['input_ids'][i]
-  val_encodings[i]['attention_mask'] = test_embeddings['attention_mask'][i]
-  val_encodings[i]['token_type_ids'] = torch.tensor([zeros]* len(test_embeddings['input_ids'][i])).to(device)
-# Define the model for fine-tuning
-model = BertMeanPoolingClassifier(num_classes=9)  # Adjust num_classes based on your task
-model.to(device)
+    val_encodings[i]['input_ids'] = test_embeddings['input_ids'][i]
+    val_encodings[i]['attention_mask'] = test_embeddings['attention_mask'][i]
+    val_encodings[i]['token_type_ids'] = torch.tensor([zeros] * len(test_embeddings['input_ids'][i])).to(device)
 print(encodings[0])
+
+# Define the model for fine-tuning
+model = BertMeanPoolingClassifier(N_classes=9, dropout=config['BERT']['dropout'])
+model.to(device)
+
 test = model(encodings[0])
 print(test)
-dataset = CustomDataset(encodings,train_labels)
+dataset = CustomDataset(encodings, train_labels)
 # Set up DataLoader for training
 batch_size = 1
 train_dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
 # Set up optimizer and loss function
-optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)
+optimizer = torch.optim.AdamW(model.parameters(), lr=config['BERT']['learningRate'])
 criterion = torch.nn.CrossEntropyLoss()
 
 # Fine-tuning loop
-epochs = 20  # Adjust as needed
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model.to(device)
+epochs = config['BERT']['epochs']
 
 for epoch in range(epochs):
     model.train()
@@ -179,32 +180,32 @@ for epoch in range(epochs):
         encoding, labels = batch['encodings'], batch['labels'][0]
 
         encoding = {'input_ids': encoding['input_ids'][0], \
-                     'token_type_ids': encoding['token_type_ids'][0],\
-                     'attention_mask': encoding['attention_mask'][0]
-                     }
-        #optimizer.zero_grad()
+                    'token_type_ids': encoding['token_type_ids'][0], \
+                    'attention_mask': encoding['attention_mask'][0]
+                    }
+        # optimizer.zero_grad()
         outputs = model(encoding)
         loss = criterion(outputs, labels)
         total_loss += loss.item()
 
         loss.backward()
-        if i%9 == 8:
-          optimizer.step()
-          optimizer.zero_grad()
-        i+=1
+        if i % 9 == 8:
+            optimizer.step()
+            optimizer.zero_grad()
+        i += 1
 
     average_loss = total_loss / len(train_dataloader)
     print(f"Epoch {epoch + 1}/{epochs}, Average Loss: {average_loss}")
-    if epoch%5 == 4:
-      print('validation set')
-      preds = validate(model, val_encodings,encoded_known_authors)
-      avg_preds = label_encoder.inverse_transform(preds)
-      author_number =[author[-2:] for author in known_authors]
-      conf = confusion_matrix(known_authors, avg_preds, normalize='true')
-      cmd = ConfusionMatrixDisplay(conf, display_labels=sorted(set(author_number)))
-      cmd.plot()
-      plt.show()
-     # delete locals
+    if epoch % 5 == 4:
+        print('validation set')
+        preds = validate(model, val_encodings, encoded_known_authors)
+        avg_preds = label_encoder.inverse_transform(preds)
+        author_number = [author[-2:] for author in known_authors]
+        conf = confusion_matrix(known_authors, avg_preds, normalize='true')
+        cmd = ConfusionMatrixDisplay(conf, display_labels=sorted(set(author_number)))
+        cmd.plot()
+        plt.show()
+    # delete locals
     del encoding
     del outputs
     del loss

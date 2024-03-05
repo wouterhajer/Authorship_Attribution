@@ -14,8 +14,16 @@
   },
   "masking": {
     "masking": 1,
-    "nMasking": 1000,
+    "nMasking": 10000,
     "singleMasking": 1
+  },
+  "BERT": {
+    "epochs": 20,
+    "dropout": 0.1,
+    "learningRate": 1e-5
+  },
+  "Pan2019": {
+    "problem": 1
   },
   "baseline": 0,
   "randomConversations": 0,

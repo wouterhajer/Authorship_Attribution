@@ -3,7 +3,8 @@ from torch import Tensor
 from typing import Any, Optional, Union
 from transformers import BatchEncoding, PreTrainedTokenizerBase
 # Functions from https://github.com/mim-solutions/bert_for_longer_texts/blob/main/belt_nlp/bert.py
-# Ensure ability to transform longer texts using BERT
+# Ensure ability to transform texts longer than 512 tokens using BERT
+# Returns list
 
 def transform_list_of_texts(
     texts: list[str],
@@ -12,6 +13,7 @@ def transform_list_of_texts(
     stride: int,
     minimal_chunk_length: int,
     maximal_text_length: Optional[int] = None,
+    device: Optional[torch.device] = 'cpu'
 ) -> BatchEncoding:
     model_inputs = [
         transform_single_text(text, tokenizer, chunk_size, stride, minimal_chunk_length, maximal_text_length)
