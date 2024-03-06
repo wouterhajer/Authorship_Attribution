@@ -1,7 +1,7 @@
 import torch
 from torch import Tensor
 from torch.nn import Module
-import gc
+
 import pandas as pd
 import os
 import glob
@@ -36,13 +36,18 @@ from masking import *
 from BERT_meanpooling import *
 from df_creator_PAN import *
 from df_creator import *
+
+# Assign device and check if it is GPU or not
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(device)
+
+# Download new bertmodel from huggingface and saves locally
 ''' 
 model = BertModel.from_pretrained('bert-base-cased')
 model.save_pretrained("BERTmodels/bert-base-cased")
 '''
-# get directory and specify problem
+
+# Get path to directory and specify problem
 path = 'Pan2019'
 problem = 'problem00001'
 
@@ -63,8 +68,9 @@ if bool(config['masking']['masking']):
     print(train_df['text'][0])
     test_df = mask(test_df, vocab_word, config)
 
+# Set tokenizer and tokenize training and test texts
 tokenizer = BertTokenizer.from_pretrained('bert-base-cased')  # RobertaTokenizer.from_pretrained('roberta-base') #
-encodings = transform_list_of_texts(train_df['text'], tokenizer, 510, 256, 256, \
+train_encodings = transform_list_of_texts(train_df['text'], tokenizer, 510, 256, 256, \
                                     device=device)
 val_encodings = transform_list_of_texts(test_df['text'], tokenizer, 510, 256, 256, \
                                         device=device)
@@ -76,59 +82,27 @@ encoded_known_authors = label_encoder.transform(test_df['author'])
 train_labels = torch.tensor(train_df['author_id'], dtype=torch.long).to(device)
 
 # Define the model for fine-tuning
-model = BertMeanPoolingClassifier(N_classes=9, dropout=config['BERT']['dropout'])
+bert_model = BertModel.from_pretrained('BERTmodels/bert-base-cased')
+model = BertMeanPoolingClassifier(bert_model, N_classes=config['Pan2019']['nClasses'],dropout=config['BERT']['dropout'])
 model.to(device)
 
-dataset = CustomDataset(encodings, train_labels)
 # Set up DataLoader for training
+dataset = CustomDataset(train_encodings, train_labels)
 batch_size = 1
 train_dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-# Set up optimizer and loss function
-optimizer = torch.optim.AdamW(model.parameters(), lr=config['BERT']['learningRate'])
-criterion = torch.nn.CrossEntropyLoss()
+# Fine-tuning and validation loop
+epochs = 5
 
-# Fine-tuning loop
-epochs = config['BERT']['epochs']
+for j in range(4):
+    model = finetune_bert_meanpooling(model, train_dataloader, epochs, config)
 
-for epoch in range(epochs):
-    model.train()
-    total_loss = 0
-    i = 0
-    for batch in train_dataloader:
-        encoding, labels = batch['encodings'], batch['labels'][0]
+    print('validation set')
+    preds = validate_bert_meanpooling(model, val_encodings, encoded_known_authors)
+    avg_preds = label_encoder.inverse_transform(preds)
+    author_number = [author[-2:] for author in test_df['author']]
+    conf = confusion_matrix(test_df['author'], avg_preds, normalize='true')
+    cmd = ConfusionMatrixDisplay(conf, display_labels=sorted(set(author_number)))
+    cmd.plot()
+    plt.show()
 
-        encoding = {'input_ids': encoding['input_ids'][0], \
-                    'token_type_ids': encoding['token_type_ids'][0], \
-                    'attention_mask': encoding['attention_mask'][0]
-                    }
-        # optimizer.zero_grad()
-        outputs = model(encoding)
-        loss = criterion(outputs, labels)
-        total_loss += loss.item()
-
-        loss.backward()
-        if i % 9 == 8:
-            optimizer.step()
-            optimizer.zero_grad()
-        i += 1
-
-    average_loss = total_loss / len(train_dataloader)
-    print(f"Epoch {epoch + 1}/{epochs}, Average Loss: {average_loss}")
-    if epoch % 5 == 4:
-        print('validation set')
-        preds = validate(model, val_encodings, encoded_known_authors)
-        avg_preds = label_encoder.inverse_transform(preds)
-        author_number = [author[-2:] for author in test_df['author']]
-        conf = confusion_matrix(test_df['author'], avg_preds, normalize='true')
-        cmd = ConfusionMatrixDisplay(conf, display_labels=sorted(set(author_number)))
-        cmd.plot()
-        plt.show()
-    # delete locals
-    del encoding
-    del outputs
-    del loss
-    # Then clean the cache
-    torch.cuda.empty_cache()
-    # then collect the garbage
-    gc.collect()

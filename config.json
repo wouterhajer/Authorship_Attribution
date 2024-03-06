@@ -23,7 +23,8 @@
     "learningRate": 1e-5
   },
   "Pan2019": {
-    "problem": 1
+    "problem": 1,
+    "nClasses": 9
   },
   "baseline": 0,
   "randomConversations": 0,
