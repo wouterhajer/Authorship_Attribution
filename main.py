@@ -22,18 +22,13 @@ if __name__ == '__main__':
     np.random.seed(random_seed)
     random.seed(random_seed)
 
-    # Create dataframe from Frida database
-    full_df = create_df('txt', config)
+    train_df, test_df, background_vocab = create_df('txt', config)
 
     # Encode author labels
     label_encoder = LabelEncoder()
-    full_df['author'] = label_encoder.fit_transform(full_df['author'])
-
-    # Limit the authors to nAuthors
-    df = full_df.loc[full_df['author'] < config['variables']['nAuthors']]
-
-    background_vocab = extend_vocabulary([1, 1], full_df['text'], model='word')
-
+    train_df['author'] = label_encoder.fit_transform(train_df['author'])
+    test_df['author'] = label_encoder.transform(test_df['author'])
+    df = pd.concat([train_df,test_df])
     """
     vocab_word = []
     with open('Frequenties.csv', newline='') as csvfile:
@@ -61,6 +56,7 @@ if __name__ == '__main__':
     score_partner = 0
     score_rest = 0
     score_sure = 0
+    f1_total = 0
 
     # For every combination of conversations in train/test set, calculate the scores for true author,
     # conversation partner and other speakers
@@ -101,11 +97,15 @@ if __name__ == '__main__':
 
         n_prob = len(sure)
         n_auth = len(set(test_authors))
+        f1 = f1_score(test_authors, avg_preds, average='macro')
 
+        f1_total += f1
         # Print the scores at this iteration
         print("Score = {:.4f}, random chance = {:.4f} ".format(score / n_prob / (i + 1), 1 / n_auth))
         print("Score partner = {:.4f}, random chance = {:.4f} ".format(score_partner / n_prob / (i + 1), 1 / n_auth))
         print("Score rest = {:.4f}, random chance = {:.4f} ".format(score_rest / n_prob / (i + 1), 1 - 2 / n_auth))
+        print("F1-score = {:.4f}".format(f1))
+        print("Average F1-score = {:.4f}".format(f1_total / (i + 1)))
 
     print('Included authors: ' + str(len(set(test_authors))))
 

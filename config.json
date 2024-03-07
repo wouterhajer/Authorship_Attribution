@@ -1,7 +1,7 @@
 {
   "variables": {
     "nWords": 100,
-    "nAuthors": 40,
+    "nAuthors": 50,
     "trueLength": 0,
     "concatenate": 0,
     "wordRange": [1,2],
@@ -13,8 +13,8 @@
     "useLSA": 1
   },
   "masking": {
-    "masking": 0,
-    "nMasking": 10000,
+    "masking": 1,
+    "nMasking": 1000,
     "singleMasking": 1
   },
   "BERT": {
@@ -28,5 +28,5 @@
   },
   "baseline": 0,
   "randomConversations": 0,
-  "confusion": 1
+  "confusion": 0
 }

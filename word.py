@@ -8,7 +8,7 @@ from sklearn.multiclass import OneVsRestClassifier
 from sklearn.multiclass import OneVsOneClassifier
 import numpy as np
 from vocabulary import *
-from masking import *
+
 
 def word_gram(train_df, test_df, config):
     word_range = tuple(config['variables']['wordRange'])

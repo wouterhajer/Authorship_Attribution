@@ -6,7 +6,7 @@ import json
 from split import *
 from sklearn.model_selection import train_test_split
 from vocabulary import extend_vocabulary
-def create_df(path, config):
+def create_df(path, config, p_test = 0.25):
     """
     :param path: Location of the text files that are to be used
     :param config: Dictionary containing globals, see config.json for all variables
@@ -54,7 +54,7 @@ def create_df(path, config):
 
             text3 = ' '.join(text2[:])
 
-            if len(text3)<10:
+            if len(text3)<200:
                 print(text3)
                 print(v)
                 continue
@@ -117,16 +117,11 @@ def create_df(path, config):
 
     # Limit the authors to nAuthors
     df = df.loc[df['author'] < config['variables']['nAuthors']]
-    print(df['conversation'])
     if bool(config['randomConversations']):
-        train_df, test_df = train_test_split(df, test_size=0.25, stratify=df[['author']])
+        train_df, test_df = train_test_split(df, test_size=p_test, stratify=df[['author']])
     else:
         print('hello')
-        train_df, test_df = split(df, 0.25, confusion=bool(config['confusion']))
-
-    print(set(train_df['author']))
-    print(set(test_df['author']))
-    print(test_df)
+        train_df, test_df = split(df, p_test, confusion=bool(config['confusion']))
 
     return train_df, test_df, background_vocab
 

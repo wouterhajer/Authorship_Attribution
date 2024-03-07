@@ -6,7 +6,6 @@ from sklearn.utils import shuffle
 from sklearn.svm import SVC
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.multiclass import OneVsOneClassifier
-from masking import *
 import numpy as np
 from vocabulary import *
 
@@ -24,14 +23,12 @@ def char_gram(train_df, test_df, config):
                                       norm='l2', lowercase=lower, vocabulary=vocab_char,
                                       smooth_idf=True, sublinear_tf=True)
 
-    n = vectorizer_char.vocabulary.index('ja')
     train_data_word = vectorizer_char.fit_transform(train_df['text']).toarray()
 
     n_best = int(len(vectorizer_char.idf_) * n_best_factor)
 
     idx_w = np.argsort(vectorizer_char.idf_)[:n_best]
-    m = list(idx_w).index(n)
-    print(m)
+
     train_data_word = train_data_word[:, idx_w]
     test_data_word = vectorizer_char.transform(test_df['text']).toarray()
     test_data_word = test_data_word[:, idx_w]
@@ -40,7 +37,7 @@ def char_gram(train_df, test_df, config):
     max_abs_scaler = preprocessing.MaxAbsScaler()
     # max_abs_scaler = preprocessing.MinMaxScaler()
 
-    ## scale text data for word n-gram model ##
+    ## scale text data for char n-gram model ##
     scaled_train_data_word = max_abs_scaler.fit_transform(train_data_word)
     scaled_test_data_word = max_abs_scaler.transform(test_data_word)
 
@@ -48,10 +45,6 @@ def char_gram(train_df, test_df, config):
     for i in range(len(train_data_word)):
         num_texts += np.array([1 if element > 0 else 0 for element in scaled_train_data_word[i]])
 
-    perc_texts = num_texts/len(train_data_word)
-    #print(np.array(scaled_train_data_word)[0,-30:])
-    #print((np.array(scaled_train_data_word)*np.exp(0.05*(1-1/perc_texts)))[0,-30:])
-    #scaled_train_data_word = list(np.array(scaled_train_data_word)*np.exp(0.1*(2-1/perc_texts)))
     if use_LSA:
         # initialize truncated singular value decomposition
         svd = TruncatedSVD(n_components=63, algorithm='randomized', random_state=43)
@@ -60,10 +53,10 @@ def char_gram(train_df, test_df, config):
         scaled_train_data_word = svd.fit_transform(scaled_train_data_word)
         scaled_test_data_word = svd.transform(scaled_test_data_word)
 
-    word = CalibratedClassifierCV(OneVsRestClassifier(SVC(C=1, kernel='linear',
+    char = CalibratedClassifierCV(OneVsRestClassifier(SVC(C=1, kernel='linear',
                                                           gamma='auto')))
-    word.fit(scaled_train_data_word, train_df['author'])
-    preds_char = word.predict(scaled_test_data_word)
-    probas_char = word.predict_proba(scaled_test_data_word)
+    char.fit(scaled_train_data_word, train_df['author'])
+    preds_char = char.predict(scaled_test_data_word)
+    probas_char = char.predict_proba(scaled_test_data_word)
 
     return preds_char,probas_char
