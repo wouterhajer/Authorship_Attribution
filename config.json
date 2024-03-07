@@ -1,7 +1,7 @@
 {
   "variables": {
     "nWords": 100,
-    "nAuthors": 50,
+    "nAuthors": 40,
     "trueLength": 0,
     "concatenate": 0,
     "wordRange": [1,2],
@@ -20,7 +20,7 @@
   "BERT": {
     "epochs": 20,
     "dropout": 0.5,
-    "learningRate": 1e-5
+    "learningRate": 2e-5
   },
   "Pan2019": {
     "problem": 1,
@@ -28,5 +28,5 @@
   },
   "baseline": 0,
   "randomConversations": 0,
-  "confusion": 0
+  "confusion": 1
 }

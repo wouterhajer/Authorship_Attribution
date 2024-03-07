@@ -19,7 +19,7 @@ def split(df, p, conversations=None, confusion=False):
         a = conversations
         train_conv = a[0]
         test_conv = a[1]
-
+    print(train_conv,test_conv)
     # Split the dataframe
     train_df = df[df['conversation'].isin(train_conv)]
     test_df = df[df['conversation'].isin(test_conv)]

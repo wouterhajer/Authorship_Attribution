@@ -10,6 +10,7 @@ def finetune_bert_meanpooling(model, train_dataloader, epochs, config):
     criterion = torch.nn.CrossEntropyLoss()
     # Currently using Number of authors as batch size
     N_classes = config['Pan2019']['nClasses']
+    N_classes = 8
     #epochs = config['BERT']['epochs']
     for epoch in range(epochs):
         model.train()

@@ -1,11 +1,4 @@
-import torch
-from torch import Tensor
-from torch.nn import Module
 
-import pandas as pd
-import os
-import glob
-import codecs
 import matplotlib.pyplot as plt
 import numpy as np
 import random
@@ -54,7 +47,10 @@ problem = 'problem00001'
 with open('config.json') as f:
     config = json.load(f)
 
-train_df, test_df = create_df_PAN(path,problem)
+train_df, test_df = create_df_PAN(path, problem)
+print(train_df)
+train_df, test_df, background_vocab = create_df('txt', config) #create_df_PAN(path, problem)
+print (train_df)
 
 if bool(config['masking']['masking']):
     vocab_word = []
@@ -69,21 +65,25 @@ if bool(config['masking']['masking']):
     test_df = mask(test_df, vocab_word, config)
 
 # Set tokenizer and tokenize training and test texts
-tokenizer = BertTokenizer.from_pretrained('bert-base-cased')  # RobertaTokenizer.from_pretrained('roberta-base') #
+# tokenizer = RobertaTokenizer.from_pretrained('DTAI-KULeuven/robbert-2023-dutch-base')
+tokenizer = BertTokenizer.from_pretrained('GroNLP/bert-base-dutch-cased')  #
 train_encodings = transform_list_of_texts(train_df['text'], tokenizer, 510, 256, 256, \
                                     device=device)
 val_encodings = transform_list_of_texts(test_df['text'], tokenizer, 510, 256, 256, \
                                         device=device)
-
+print(set(train_df['author']))
+print(set(test_df['author']))
 # Encode author labels
 label_encoder = LabelEncoder()
 train_df['author_id'] = label_encoder.fit_transform(train_df['author'])
 encoded_known_authors = label_encoder.transform(test_df['author'])
 train_labels = torch.tensor(train_df['author_id'], dtype=torch.long).to(device)
-
+N_classes = len(list(set(encoded_known_authors)))
+print(N_classes)
 # Define the model for fine-tuning
-bert_model = BertModel.from_pretrained('BERTmodels/bert-base-cased')
-model = BertMeanPoolingClassifier(bert_model, N_classes=config['Pan2019']['nClasses'],dropout=config['BERT']['dropout'])
+#bert_model = RobertaModel.from_pretrained('BERTmodels/robbert-2023-dutch-base')
+bert_model = BertModel.from_pretrained('BERTmodels/bert-base-dutch-cased')
+model = BertMeanPoolingClassifier(bert_model, N_classes=N_classes, dropout=config['BERT']['dropout'])
 model.to(device)
 
 # Set up DataLoader for training
@@ -94,13 +94,13 @@ train_dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 # Fine-tuning and validation loop
 epochs = 5
 
-for j in range(4):
+for j in range(8):
     model = finetune_bert_meanpooling(model, train_dataloader, epochs, config)
 
     print('validation set')
     preds = validate_bert_meanpooling(model, val_encodings, encoded_known_authors)
     avg_preds = label_encoder.inverse_transform(preds)
-    author_number = [author[-2:] for author in test_df['author']]
+    author_number = [author for author in test_df['author']]
     conf = confusion_matrix(test_df['author'], avg_preds, normalize='true')
     cmd = ConfusionMatrixDisplay(conf, display_labels=sorted(set(author_number)))
     cmd.plot()

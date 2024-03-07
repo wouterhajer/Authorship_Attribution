@@ -3,7 +3,9 @@ import glob
 import codecs
 import pandas as pd
 import json
-
+from split import *
+from sklearn.model_selection import train_test_split
+from vocabulary import extend_vocabulary
 def create_df(path, config):
     """
     :param path: Location of the text files that are to be used
@@ -16,6 +18,7 @@ def create_df(path, config):
     n_words = config["variables"]["nWords"]
 
     files = glob.glob(path + os.sep + '*.txt')
+
     texts = []
 
     # keep track of the author of the last document
@@ -25,7 +28,7 @@ def create_df(path, config):
     odd = [1, 2, 3, 4, 5, 6, 7, 8]
     even = [3, 4, 1, 2, 7, 8, 5, 6]
 
-    for i, v in enumerate(files):
+    for i, v in enumerate(sorted(files)):
         if v[-5] == '1' and 310 > int(v[6:9]) > 0 and v[9] != 'a':
 
             # Check if author corresponds to current author and count the conversation
@@ -40,7 +43,6 @@ def create_df(path, config):
                 conversation = odd[j]
             else:
                 conversation = even[j]
-
             f = codecs.open(v, 'r', encoding='utf-8')
             label = int(v[6:9])
             text = f.read()
@@ -51,6 +53,11 @@ def create_df(path, config):
                 text2.append(line[2])
 
             text3 = ' '.join(text2[:])
+
+            if len(text3)<10:
+                print(text3)
+                print(v)
+                continue
 
             # If trueLength is set to 1, cut off messages at that amount of words and get rid of shorter messages
             # Not in active use, depreciated
@@ -79,7 +86,8 @@ def create_df(path, config):
                     text4 = ' '.join(words[-n_words:])
                     texts.append((text4, label, conversation))
             else:
-                texts.append((text3, label, conversation))
+                if len(text3) > 10:
+                    texts.append((text3, label, conversation))
             f.close()
 
     # Convert into dataframe
@@ -100,18 +108,33 @@ def create_df(path, config):
                 new_texts.append((' '.join(sentence[:]), author))
         df = pd.DataFrame(new_texts, columns=['text', 'author'])
 
+    background_vocab = extend_vocabulary([1, 1], df['text'], model='word')
+
     # only keep authors with at least 8 recordings to get a uniform training set
     v = df['author'].value_counts()
     df = df[df['author'].isin(v[v >= 8].index)]
     df = df.reset_index(drop=True)
 
-    return df
+    # Limit the authors to nAuthors
+    df = df.loc[df['author'] < config['variables']['nAuthors']]
+    print(df['conversation'])
+    if bool(config['randomConversations']):
+        train_df, test_df = train_test_split(df, test_size=0.25, stratify=df[['author']])
+    else:
+        print('hello')
+        train_df, test_df = split(df, 0.25, confusion=bool(config['confusion']))
+
+    print(set(train_df['author']))
+    print(set(test_df['author']))
+    print(test_df)
+
+    return train_df, test_df, background_vocab
 
 
 if __name__ == '__main__':
     with open('config.json') as f:
         config = json.load(f)
-    full_df = create_df('txt', config)
-    print(full_df[:100])
+    train_df,test_df, vocab = create_df('txt', config)
+    print(train_df[:50])
 
 

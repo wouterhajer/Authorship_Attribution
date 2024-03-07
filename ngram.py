@@ -79,8 +79,8 @@ if __name__ == '__main__':
     np.random.seed(random_seed)
     random.seed(random_seed)
 
-    full_df = create_df('txt', config)
-    background_vocab = extend_vocabulary([1, 1], full_df['text'], model='word')
+    train_df, test_df, background_vocab = create_df('txt', config)
+
     # Background vocabulary based on dutch subtitles, lowers performance
     """
     vocab_word = []
@@ -98,15 +98,8 @@ if __name__ == '__main__':
     """
     # Encode author labels
     label_encoder = LabelEncoder()
-    full_df['author'] = label_encoder.fit_transform(full_df['author'])
-
-    # Limit the authors to nAuthors
-    df = full_df.loc[full_df['author'] < config['variables']['nAuthors']]
-
-    if bool(config['randomConversations']):
-        train_df, test_df = train_test_split(df, test_size=0.25, stratify=df[['author']])
-    else:
-        train_df, test_df = split(df, 0.25, confusion = bool(config['confusion']))
+    train_df['author'] = label_encoder.fit_transform(train_df['author'])
+    test_df['author'] = label_encoder.transform(test_df['author'])
 
     avg_preds, preds_char, preds_word, test_authors, sure = ngram(train_df, test_df, config, background_vocab)
 

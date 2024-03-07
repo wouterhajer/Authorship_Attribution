@@ -44,13 +44,16 @@ def transform_single_text(
         maximal_text_length: Optional[int],
 ) -> tuple[Tensor, Tensor]:
     """Transforms (the entire) text to model input of BERT model."""
+
     if maximal_text_length:
         tokens = tokenize_text_with_truncation(text, tokenizer, maximal_text_length)
     else:
         tokens = tokenize_whole_text(text, tokenizer)
+
     input_id_chunks, mask_chunks = split_tokens_into_smaller_chunks(tokens, chunk_size, stride, minimal_chunk_length)
     add_special_tokens_at_beginning_and_end(input_id_chunks, mask_chunks)
     add_padding_tokens(input_id_chunks, mask_chunks)
+    #print(input_id_chunks)
     input_ids, attention_mask = stack_tokens_from_all_chunks(input_id_chunks, mask_chunks)
     return input_ids, attention_mask
 
