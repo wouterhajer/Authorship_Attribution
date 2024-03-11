@@ -1,7 +1,7 @@
 import random
 import pandas as pd
 
-def split(df, p, conversations=None, confusion=False):
+def split(df2, p, conversations=None, confusion=False):
     """
     Function to split dataframe into train and test based on conversations number in Frida
     :param df: Original dataframe
@@ -9,6 +9,7 @@ def split(df, p, conversations=None, confusion=False):
     :param conversations: Specific, non random split (tuple)
     :return: train and test dataframe
     """
+    df = df2.copy()
     # If no specific conversations are given, decide randomly
     if conversations == None:
         a = df['conversation'].unique()

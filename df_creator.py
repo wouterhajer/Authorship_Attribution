@@ -123,13 +123,13 @@ def create_df(path, config, p_test = 0.25):
         print('hello')
         train_df, test_df = split(df, p_test, confusion=bool(config['confusion']))
 
-    return train_df, test_df, background_vocab
+    return df, train_df, test_df, background_vocab
 
 
 if __name__ == '__main__':
     with open('config.json') as f:
         config = json.load(f)
-    train_df,test_df, vocab = create_df('txt', config)
+    df, train_df, test_df, vocab = create_df('txt', config)
     print(train_df[:50])
 
 
