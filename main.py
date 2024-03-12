@@ -22,7 +22,7 @@ if __name__ == '__main__':
     np.random.seed(random_seed)
     random.seed(random_seed)
 
-    train_df, test_df, background_vocab = create_df('txt', config)
+    full_df, train_df, test_df, background_vocab = create_df('txt', config)
 
     # Encode author labels
     label_encoder = LabelEncoder()

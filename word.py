@@ -49,7 +49,7 @@ def word_gram(train_df, test_df, config):
 
     if use_LSA:
         # initialize truncated singular value decomposition
-        svd = TruncatedSVD(n_components=63, algorithm='randomized', random_state=42)
+        svd = TruncatedSVD(n_components=500, algorithm='randomized', random_state=42)
 
         # Word
         scaled_train_data_word = svd.fit_transform(scaled_train_data_word)

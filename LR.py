@@ -69,6 +69,8 @@ n_best_factor = config['variables']['nBestFactorChar']
 lower = bool(config['variables']['lower'])
 use_LSA = bool(config['variables']['useLSA'])
 
+cllr_avg = np.zeros(4)
+print(cllr_avg)
 lr = []
 true = []
 #combinations = [([1,2,4,5,6,7,8],[3])]
@@ -119,7 +121,7 @@ for i, comb in enumerate(combinations):
 
     if use_LSA:
         # initialize truncated singular value decomposition
-        svd = TruncatedSVD(n_components=63, algorithm='randomized', random_state=43)
+        svd = TruncatedSVD(n_components = 500, algorithm='randomized', random_state=43)
 
         # Word
         scaled_train_data_word = svd.fit_transform(scaled_train_data_word)
@@ -157,12 +159,16 @@ for i, comb in enumerate(combinations):
         scorer = CalibratedClassifierCV(OneVsRestClassifier(SVC(C=1, kernel='linear',
                                                                 gamma='auto')))
         calibrator = lir.KDECalibrator(bandwidth='silverman')
+
         scorer.fit(scaled_train_data_word, train_df['h1'])
         dissimilarity_scores_test = scorer.predict_proba(scaled_test_data_word)
 
         dissimilarity_scores_train = np.array(h1_cali + h2_cali)
 
         hypothesis_train = np.array(['H1'] * len(h1_cali) + ['H2'] * len(h2_cali))
+        #bandwidth = calibrator.bandwidth_silverman(dissimilarity_scores_train, hypothesis_train == 'H1')*np.array([2,1])
+
+        #calibrator = lir.KDECalibrator(bandwidth=bandwidth)
         calibrator.fit(dissimilarity_scores_train, hypothesis_train == 'H1')
 
 
@@ -172,17 +178,20 @@ for i, comb in enumerate(combinations):
         lrs_test = bounded_calibrator.transform(dissimilarity_scores_test[:,0])
 
         lr.extend(lrs_test)
-        true.extend([1 if author == suspect else 0 for author in test_df['author']])
+        true_test = [1 if author == suspect else 0 for author in test_df['author']]
+        true.extend(true_test)
         lr_split.extend(lrs_test)
-        true_split.extend([1 if author == suspect else 0 for author in test_df['author']])
+        true_split.extend(true_test)
         time.sleep(0.1)
-    index = [i for i in range(len(true_split)) if true_split[i] == 1]
-    print(np.array(lr_split)[index])
-    cllr = lir.metrics.cllr(np.array(lr_split), np.array(true_split))
-    cllr_min = lir.metrics.cllr_min(np.array(lr_split), np.array(true_split))
-    cllr_cal = cllr - cllr_min
-    print(f"Test conversation: {comb[1]}")
-    print(f"Cllr: {cllr}, Cllr_min: {cllr_min}, Cllr_cal: {cllr_cal}")
+        cllr = lir.metrics.cllr(np.array(lrs_test), np.array(true_test))
+        cllr_min = lir.metrics.cllr_min(np.array(lrs_test), np.array(true_test))
+        cllr_cal = cllr - cllr_min
+        cllr_avg = cllr_avg + np.array([cllr, cllr_min, cllr_cal,1])
+        print(f"Test conversation: {comb[1]}")
+        print(f"Cllr: {cllr:.3f}, Cllr_min: {cllr_min:.3f}, Cllr_cal: {cllr_cal:.3f}")
+        print(f"Average Cllr: {cllr_avg[0] / cllr_avg[3]:.3f}, Cllr_min: {cllr_avg[1] / cllr_avg[3]:.3f}\
+        , Cllr_cal: {cllr_avg[2] / cllr_avg[3]:.3f}")
+
     with lir.plotting.show() as ax:
         ax.calibrator_fit(calibrator, score_range=[0, 1])
         ax.score_distribution(scores=dissimilarity_scores_train, y=(hypothesis_train == 'H1') * 1,
@@ -190,7 +199,6 @@ for i, comb in enumerate(combinations):
         ax.xlabel('SVM score')
         H1_legend = mpatches.Patch(color='tab:blue', alpha=.3, label='$H_1$-true')
         H1_legend = mpatches.Patch(color='tab:orange', alpha=.3, label='$H_1$-true')
-
     plt.show()
 
 with lir.plotting.show() as ax:
@@ -210,8 +218,16 @@ plt.show()
 df = df.sort_index(axis=0)
 print(train_df)
 index = [i for i in range(len(true)) if true[i] == 1]
-print(np.array(lr)[index])
+print(f"Nauthors: {len(set(train_df['author']))}")
+
+print(np.median(np.array(lr)[index]))
 cllr = lir.metrics.cllr(np.array(lr), np.array(true))
 cllr_min = lir.metrics.cllr_min(np.array(lr), np.array(true))
 cllr_cal = cllr-cllr_min
-print(f"Cllr: {cllr}, Cllr_min: {cllr_min}, Cllr_cal: {cllr_cal}")
+print(f"Cllr: {cllr:.3f}, Cllr_min: {cllr_min:.3f}, Cllr_cal: {cllr_cal:.3f}")
+print(f"Average Cllr: {cllr_avg[0] / cllr_avg[3]:.3f}, Cllr_min: {cllr_avg[1] / cllr_avg[3]:.3f}\
+        , Cllr_cal: {cllr_avg[2] / cllr_avg[3]:.3f}")
+
+with lir.plotting.show() as ax:
+    ax.tippett(np.array(lr),np.array(true))
+plt.show()
