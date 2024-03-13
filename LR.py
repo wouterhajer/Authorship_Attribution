@@ -126,6 +126,7 @@ for i, comb in enumerate(combinations):
     conversations = list(set(train_df['conversation']))
     lr_split = []
     true_split = []
+    print(f"Test conversation: {comb[1]}")
     for suspect in range(0, len(set(train_df['author']))):
         train_df['h1'] = [1 if author == suspect else 0 for author in train_df['author']]
 
@@ -183,20 +184,16 @@ for i, comb in enumerate(combinations):
         cllr_min = lir.metrics.cllr_min(np.array(lrs_test), np.array(true_test))
         cllr_cal = cllr - cllr_min
         cllr_avg = cllr_avg + np.array([cllr, cllr_min, cllr_cal,1])
-        ones_list = np.ones(len(hypothesis_train))
-        print(f"Test conversation: {comb[1]}")
-        print(f"Cllr: {cllr:.3f}, Cllr_min: {cllr_min:.3f}, Cllr_cal: {cllr_cal:.3f}")
-        print(f"Average Cllr: {cllr_avg[0] / cllr_avg[3]:.3f}, Cllr_min: {cllr_avg[1] / cllr_avg[3]:.3f}\
-        , Cllr_cal: {cllr_avg[2] / cllr_avg[3]:.3f}")
 
+    ones_list = np.ones(len(hypothesis_train))
     with lir.plotting.show() as ax:
         ax.calibrator_fit(calibrator, score_range=[0, 1])
         ax.score_distribution(scores=dissimilarity_scores_train[hypothesis_train == 'H1'],
                               y=ones_list[hypothesis_train == 'H1'],
-                              bins=np.linspace(0, 1, 10), weighted=True)
+                              bins=np.linspace(0, 1, 9), weighted=True)
         ax.score_distribution(scores=dissimilarity_scores_train[hypothesis_train == 'H2'],
                               y=ones_list[hypothesis_train == 'H2']*0,
-                              bins=np.linspace(0, 1, 50), weighted=True)
+                              bins=np.linspace(0, 1, 41), weighted=True)
         ax.xlabel('SVM score')
         H1_legend = mpatches.Patch(color='tab:blue', alpha=.3, label='$H_1$-true')
         H2_legend = mpatches.Patch(color='tab:orange', alpha=.3, label='$H_2$-true')
@@ -218,11 +215,13 @@ plt.show()
 plt.scatter(true, np.log10(lr))
 plt.show()
 df = df.sort_index(axis=0)
+
 print(train_df)
 index = [i for i in range(len(true)) if true[i] == 1]
 print(f"Nauthors: {len(set(train_df['author']))}")
-
-print(np.median(np.array(lr)[index]))
+h1_lrs = np.array(lr)[index]
+index = [i for i in range(len(true)) if true[i] == 0]
+h2_lrs = np.array(lr)[index]
 cllr = lir.metrics.cllr(np.array(lr), np.array(true))
 cllr_min = lir.metrics.cllr_min(np.array(lr), np.array(true))
 cllr_cal = cllr-cllr_min
@@ -230,6 +229,15 @@ print(f"Cllr: {cllr:.3f}, Cllr_min: {cllr_min:.3f}, Cllr_cal: {cllr_cal:.3f}")
 print(f"Average Cllr: {cllr_avg[0] / cllr_avg[3]:.3f}, Cllr_min: {cllr_avg[1] / cllr_avg[3]:.3f}\
         , Cllr_cal: {cllr_avg[2] / cllr_avg[3]:.3f}")
 
+freq1 = np.histogram(h1_lrs, bins = [-np.inf]+[1,100]+[np.inf])[0]/len(h1_lrs)
+freq2 = np.histogram(h2_lrs, bins = [-np.inf]+[1,100]+[np.inf])[0]/len(h2_lrs)
+print(f"H1 samples with LR < 1: {freq1[0]*100:.3f}%, H2 samples with LR > 1: {(freq2[1]+freq2[2])*100:.3f}%")
+print(f"H1 samples with LR < 100: {(freq1[0]+freq1[1])*100:.3f}%, H2 samples with LR > 100: {freq2[2]*100:.3f}%")
+print(f"H1 sample with lowest LR: {np.min(h1_lrs):.3f}, H2 sample with highest LR: {np.max(h2_lrs):.3f}")
+print(f"H1 sample with highest LR: {np.max(h1_lrs):.3f}, H2 sample with lowest LR: {np.min(h2_lrs):.3f}")
+
 with lir.plotting.show() as ax:
-    ax.tippett(np.array(lr),np.array(true))
+    ax.tippett(np.array(lr), np.array(true))
 plt.show()
+
+
