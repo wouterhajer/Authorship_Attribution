@@ -199,6 +199,9 @@ for i, comb in enumerate(combinations):
         H2_legend = mpatches.Patch(color='tab:orange', alpha=.3, label='$H_2$-true')
         ax.legend()
         plt.show()
+    with lir.plotting.show() as ax:
+        ax.tippett(np.array(lr[-len(set(train_df['author']))**2:]), np.array(true[-len(set(train_df['author']))**2:]))
+    plt.show()
 
 with lir.plotting.show() as ax:
     ax.calibrator_fit(calibrator, score_range=[0, 1])
@@ -209,7 +212,10 @@ with lir.plotting.show() as ax:
     H1_legend = mpatches.Patch(color='tab:orange', alpha=.3, label='$H_1$-true')
 
 plt.show()
-plt.scatter(dissimilarity_scores_train, np.log10(lrs_train))
+
+
+plt.scatter(dissimilarity_scores_train[hypothesis_train == 'H1'], np.log10(lrs_train)[hypothesis_train == 'H1'])
+plt.scatter(dissimilarity_scores_train[hypothesis_train == 'H2'], np.log10(lrs_train)[hypothesis_train == 'H2'])
 plt.show()
 
 plt.scatter(true, np.log10(lr))
