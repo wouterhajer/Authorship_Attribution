@@ -115,10 +115,6 @@ for i, comb in enumerate(combinations):
     scaled_train_data_word = max_abs_scaler.fit_transform(train_data_word)
     scaled_test_data_word = max_abs_scaler.transform(test_data_word)
 
-    num_texts = np.zeros(len(train_data_word[0]))
-    for i in range(len(train_data_word)):
-        num_texts += np.array([1 if element > 0 else 0 for element in scaled_train_data_word[i]])
-
     if use_LSA:
         # initialize truncated singular value decomposition
         svd = TruncatedSVD(n_components = 500, algorithm='randomized', random_state=43)
@@ -187,6 +183,7 @@ for i, comb in enumerate(combinations):
         cllr_min = lir.metrics.cllr_min(np.array(lrs_test), np.array(true_test))
         cllr_cal = cllr - cllr_min
         cllr_avg = cllr_avg + np.array([cllr, cllr_min, cllr_cal,1])
+        ones_list = np.ones(len(hypothesis_train))
         print(f"Test conversation: {comb[1]}")
         print(f"Cllr: {cllr:.3f}, Cllr_min: {cllr_min:.3f}, Cllr_cal: {cllr_cal:.3f}")
         print(f"Average Cllr: {cllr_avg[0] / cllr_avg[3]:.3f}, Cllr_min: {cllr_avg[1] / cllr_avg[3]:.3f}\
@@ -194,12 +191,17 @@ for i, comb in enumerate(combinations):
 
     with lir.plotting.show() as ax:
         ax.calibrator_fit(calibrator, score_range=[0, 1])
-        ax.score_distribution(scores=dissimilarity_scores_train, y=(hypothesis_train == 'H1') * 1,
-                              bins=np.linspace(0, 1, 20), weighted=True)
+        ax.score_distribution(scores=dissimilarity_scores_train[hypothesis_train == 'H1'],
+                              y=ones_list[hypothesis_train == 'H1'],
+                              bins=np.linspace(0, 1, 10), weighted=True)
+        ax.score_distribution(scores=dissimilarity_scores_train[hypothesis_train == 'H2'],
+                              y=ones_list[hypothesis_train == 'H2']*0,
+                              bins=np.linspace(0, 1, 50), weighted=True)
         ax.xlabel('SVM score')
         H1_legend = mpatches.Patch(color='tab:blue', alpha=.3, label='$H_1$-true')
-        H1_legend = mpatches.Patch(color='tab:orange', alpha=.3, label='$H_1$-true')
-    plt.show()
+        H2_legend = mpatches.Patch(color='tab:orange', alpha=.3, label='$H_2$-true')
+        ax.legend()
+        plt.show()
 
 with lir.plotting.show() as ax:
     ax.calibrator_fit(calibrator, score_range=[0, 1])
