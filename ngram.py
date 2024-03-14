@@ -1,14 +1,14 @@
 import time
-from sklearn.model_selection import train_test_split
+import numpy as np
+import json
+import random
 from sklearn.preprocessing import LabelEncoder
-from word import *
-from char import *
-from char_dist import *
+from multiclass_classifier import Multiclass_classifier
 import matplotlib.pyplot as plt
 from sklearn.metrics import f1_score, confusion_matrix, ConfusionMatrixDisplay
-from df_creator import *
-from split import *
-from masking import *
+from df_creator import create_df
+from masking import mask
+from vocabulary import extend_vocabulary
 import csv
 
 
@@ -46,29 +46,20 @@ def ngram(train_df, test_df, config, vocab_word=0):
     # Compute predictions using word and character n-gram models (additionaly one focussing on punctuation can be added)
     preds_word, probs_word = Multiclass_classifier(train_df, test_df, config, model='word')
     preds_char, probs_char = Multiclass_classifier(train_df, test_df, config, model='char-std')
-    # preds_char_dist, probs_char_dist = SVM_classifier(train_df, test_df, config, model='char-dist')
+    # preds_char_dist, probs_char_dist = Multiclass_classifier(train_df, test_df, config, model='char-dist')
 
     # Soft Voting procedure (combines the votes of the individual classifier)
     candidates = list(set(train_df['author']))
-    n_authors = (len(candidates))
     test_authors = list(test_df['author'])
 
     avg_probs = np.average([probs_word, probs_char], axis=0)
     avg_preds = []
-    sure = []
 
     for i, text_probs in enumerate(avg_probs):
         ind_best = np.argmax(text_probs)
         avg_preds.append(candidates[ind_best])
 
-        second = np.partition(text_probs, -2)[-2]
-        # If significant difference between first and second probability count as sure
-        if text_probs.max() - second > 1 / n_authors:
-            sure.append(True)
-        else:
-            sure.append(False)
-
-    return avg_preds, preds_char, preds_word, test_authors, sure  # , avg_probs
+    return avg_preds, preds_char, preds_word, test_authors  # , avg_probs
 
 
 if __name__ == '__main__':
@@ -95,7 +86,6 @@ if __name__ == '__main__':
             if i > 50000:
                 break
             i += 1
-    print(vocab_word[900:1000])
     background_vocab = vocab_word[1:]
     """
     # Encode author labels
@@ -103,7 +93,7 @@ if __name__ == '__main__':
     train_df['author'] = label_encoder.fit_transform(train_df['author'])
     test_df['author'] = label_encoder.transform(test_df['author'])
 
-    avg_preds, preds_char, preds_word, test_authors, sure = ngram(train_df, test_df, config, background_vocab)
+    avg_preds, preds_char, preds_word, test_authors = ngram(train_df, test_df, config, background_vocab)
 
     avg_preds = label_encoder.inverse_transform(avg_preds)
     preds_char = label_encoder.inverse_transform(preds_char)
@@ -137,8 +127,6 @@ if __name__ == '__main__':
     for i in range(len(test_df['author'])):
         if test_authors[i] == avg_preds[i]:
             score += 1
-            if sure[i]:
-                score_sure += 1
         elif test_authors[i] == avg_preds[i] + 1 and list(test_df['author'])[i] % 2 == 1:
             score_partner += 1
         elif test_authors[i] == avg_preds[i] - 1 and list(test_df['author'])[i] % 2 == 0:
@@ -146,20 +134,9 @@ if __name__ == '__main__':
         else:
             score_rest += 1
 
-    print('Score = ' + str(score / len(sure)) + ', random chance = ' + str(1 / len(set(test_authors))))
-    print('Score partner = ' + str(score_partner / len(sure)) + ', random chance = ' + str(1 / len(set(test_authors))))
-    print('Score rest = ' + str(score_rest / len(sure)) + ', random chance = ' + str(1 - 2 / len(set(test_authors))))
-
-    """
-    print('Percentage sure: ' + str(sure.count(True) / len(sure)))
-    print('Score when sure: ' + str(score_sure / sure.count(True)))
-    indeces = [i for i, x in enumerate(sure) if x]
-    f1 = f1_score([test_authors[x] for x in indeces], [avg_preds[x] for x in indeces], average='macro')
-    print('Macro F1 when sure:' + str(f1))
-    indeces = [i for i, x in enumerate(sure) if not x]
-    f1 = f1_score([test_authors[x] for x in indeces], [avg_preds[x] for x in indeces], average='macro')
-    print('Macro F1 when unsure:' + str(f1) + '\n')
-    """
+    print('Score = ' + str(score / len(avg_preds)) + ', random chance = ' + str(1 / len(set(test_authors))))
+    print('Score partner = ' + str(score_partner / len(avg_preds)) + ', random chance = ' + str(1 / len(set(test_authors))))
+    print('Score rest = ' + str(score_rest / len(avg_preds)) + ', random chance = ' + str(1 - 2 / len(set(test_authors))))
 
     print('Total time: ' + str(time.time() - start) + ' seconds')
     conf = confusion_matrix(test_authors, avg_preds, normalize='true')

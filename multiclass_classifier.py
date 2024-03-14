@@ -20,3 +20,9 @@ def Multiclass_classifier(train_df, test_df, config, model):
     preds_char = char.predict(scaled_test_data)
     probas_char = char.predict_proba(scaled_test_data)
     return preds_char, probas_char
+
+def binary_classifier(train_data, truth, test_data):
+    char = CalibratedClassifierCV(OneVsRestClassifier(SVC(C=1, kernel='linear', gamma='auto')))
+    char.fit(train_data, truth)
+    probas_char = char.predict_proba(test_data)
+    return probas_char[:,0]

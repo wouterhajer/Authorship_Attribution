@@ -11,10 +11,11 @@
     "nBestFactorWord": 0.1,
     "lower": 0,
     "useLSA": 1,
-    "nDimensions": 500
+    "model": "both"
   },
+
   "masking": {
-    "masking": 0,
+    "masking": 1,
     "nMasking": 1000,
     "singleMasking": 1
   },
@@ -29,5 +30,5 @@
   },
   "baseline": 0,
   "randomConversations": 0,
-  "confusion": 1
+  "confusion": 0
 }

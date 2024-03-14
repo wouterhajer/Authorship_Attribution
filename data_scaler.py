@@ -1,19 +1,20 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn import preprocessing
 from sklearn.decomposition import TruncatedSVD
-from vocabulary import *
+from vocabulary import extend_vocabulary
 import numpy as np
 
 def data_scaler(train_df,test_df,config,model = 'char-std'):
     if model == 'char-std':
         range = tuple(config['variables']['charRange'])
         n_best_factor = config['variables']['nBestFactorChar']
-    if model == 'word':
+    elif model == 'word':
         range = tuple(config['variables']['wordRange'])
         n_best_factor = config['variables']['nBestFactorWord']
+    else:
+        print('No model specified')
     lower = bool(config['variables']['lower'])
     use_LSA = bool(config['variables']['useLSA'])
-    n_dimensions = bool(config['variables']['nDimensions'])
 
     vocab = extend_vocabulary(range, train_df['text'], model=model)
 
@@ -42,10 +43,9 @@ def data_scaler(train_df,test_df,config,model = 'char-std'):
 
     if use_LSA:
         # initialize truncated singular value decomposition
-        svd = TruncatedSVD(n_components=300, algorithm='randomized', random_state=43)
+        svd = TruncatedSVD(n_components=len(train_data), algorithm='randomized', random_state=43)
 
         # Word
         scaled_train_data = svd.fit_transform(scaled_train_data)
         scaled_test_data = svd.transform(scaled_test_data)
-        print(svd.explained_variance_ratio_.sum())
-    return scaled_train_data,scaled_test_data
+    return scaled_train_data, scaled_test_data
