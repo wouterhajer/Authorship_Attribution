@@ -44,8 +44,8 @@ def ngram(train_df, test_df, config, vocab_word=0):
         config['variables']['nBestFactorWord'] = 100 / len(vocab_word)
 
     # Compute predictions using word and character n-gram models (additionaly one focussing on punctuation can be added)
-    preds_word, probs_word = SVM_classifier(train_df, test_df, config, model='word')
-    preds_char, probs_char = SVM_classifier(train_df, test_df, config, model='char-std')
+    preds_word, probs_word = Multiclass_classifier(train_df, test_df, config, model='word')
+    preds_char, probs_char = Multiclass_classifier(train_df, test_df, config, model='char-std')
     # preds_char_dist, probs_char_dist = SVM_classifier(train_df, test_df, config, model='char-dist')
 
     # Soft Voting procedure (combines the votes of the individual classifier)
