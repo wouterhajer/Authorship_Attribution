@@ -63,8 +63,10 @@ if bool(config['baseline']):
     config['variables']['wordRange'] = [1, 1]
     vocab_word = extend_vocabulary([1, 1], train_df['text'], model='word')
     config['variables']['nBestFactorWord'] = 100 / len(vocab_word)
+    config['variables']['useLSA'] = 0
 
 char_range = tuple(config['variables']['charRange'])
+word_range = tuple(config['variables']['wordRange'])
 n_best_factor = config['variables']['nBestFactorChar']
 lower = bool(config['variables']['lower'])
 use_LSA = bool(config['variables']['useLSA'])
@@ -91,20 +93,28 @@ for i, comb in enumerate(combinations):
     #print(train_df,test_df)
 
     vocab_char = extend_vocabulary(char_range, train_df['text'], model='char-std')
-
+    vocab_word = extend_vocabulary(char_range, train_df['text'], model='word')
     ## initialize tf-idf vectorizer for word n-gram model (captures content) ##
-    vectorizer_char = TfidfVectorizer(analyzer='char', ngram_range=char_range, use_idf=True,
+    vectorizer_word = TfidfVectorizer(analyzer='char', ngram_range=char_range, use_idf=True,
                                       norm='l2', lowercase=lower, vocabulary=vocab_char,
                                       smooth_idf=True, sublinear_tf=True)
+    # If baseline is true a top 100 word-1-gram model is used
+    if bool(config['baseline']):
+        vocab_word = extend_vocabulary(word_range, train_df['text'], model='word')
+        n_best_factor = 100 / len(vocab_word)
+    vectorizer_word = TfidfVectorizer(analyzer='word', ngram_range=word_range, use_idf=True,
+                                      norm='l2', lowercase=lower, vocabulary=vocab_word,
+                                      smooth_idf=True, sublinear_tf=True)
 
-    train_data_word = vectorizer_char.fit_transform(train_df['text']).toarray()
 
-    n_best = int(len(vectorizer_char.idf_) * n_best_factor)
-
-    idx_w = np.argsort(vectorizer_char.idf_)[:n_best]
+    #train_data_word = vectorizer_char.fit_transform(train_df['text']).toarray()
+    train_data_word = vectorizer_word.fit_transform(train_df['text']).toarray()
+    n_best = int(len(vectorizer_word.idf_) * n_best_factor)
+    print(n_best)
+    idx_w = np.argsort(vectorizer_word.idf_)[:n_best]
 
     train_data_word = train_data_word[:, idx_w]
-    test_data_word = vectorizer_char.transform(test_df['text']).toarray()
+    test_data_word = vectorizer_word.transform(test_df['text']).toarray()
     test_data_word = test_data_word[:, idx_w]
 
     # Choose scaler
@@ -186,8 +196,9 @@ for i, comb in enumerate(combinations):
         cllr_avg = cllr_avg + np.array([cllr, cllr_min, cllr_cal,1])
 
     ones_list = np.ones(len(hypothesis_train))
+    """
     with lir.plotting.show() as ax:
-        ax.calibrator_fit(calibrator, score_range=[0, 1])
+        ax.calibrator_fit(calibrator, score_range=[0, 1], resolution = 1000)
         ax.score_distribution(scores=dissimilarity_scores_train[hypothesis_train == 'H1'],
                               y=ones_list[hypothesis_train == 'H1'],
                               bins=np.linspace(0, 1, 9), weighted=True)
@@ -199,12 +210,14 @@ for i, comb in enumerate(combinations):
         H2_legend = mpatches.Patch(color='tab:orange', alpha=.3, label='$H_2$-true')
         ax.legend()
         plt.show()
+
     with lir.plotting.show() as ax:
         ax.tippett(np.array(lr[-len(set(train_df['author']))**2:]), np.array(true[-len(set(train_df['author']))**2:]))
     plt.show()
+    """
 
 with lir.plotting.show() as ax:
-    ax.calibrator_fit(calibrator, score_range=[0, 1])
+    ax.calibrator_fit(calibrator, score_range=[0, 1], resolution = 1000)
     ax.score_distribution(scores=dissimilarity_scores_train, y=(hypothesis_train == 'H1') * 1,
                           bins=np.linspace(0, 1, 20), weighted=True)
     ax.xlabel('SVM score')
@@ -214,10 +227,10 @@ with lir.plotting.show() as ax:
 plt.show()
 
 
-plt.scatter(dissimilarity_scores_train[hypothesis_train == 'H1'], np.log10(lrs_train)[hypothesis_train == 'H1'])
-plt.scatter(dissimilarity_scores_train[hypothesis_train == 'H2'], np.log10(lrs_train)[hypothesis_train == 'H2'])
+plt.scatter(dissimilarity_scores_test[true_test == 1], np.log10(lrs_test)[true_test == 1])
+plt.scatter(dissimilarity_scores_test[true_test == 0], np.log10(lrs_test)[true_test == 0])
 plt.show()
-
+ 
 plt.scatter(true, np.log10(lr))
 plt.show()
 df = df.sort_index(axis=0)

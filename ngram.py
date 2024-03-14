@@ -32,18 +32,19 @@ def ngram(train_df, test_df, config, vocab_word=0):
             vocab_word = extend_vocabulary([1, 1], train_df['text'], model='word')
         vocab_word = vocab_word[:n_masking]
         vocab_word = [x.lower() for x in vocab_word]
-        #print(vocab_word)
         train_df = mask(train_df, vocab_word, config)
         test_df = mask(test_df, vocab_word, config)
 
     # If baseline is true a top 100 word-1-gram model is used
     if bool(config['baseline']):
+        config['variables']['useLSA'] = 0
         config['variables']['wordRange'] = [1, 1]
         vocab_word = extend_vocabulary([1, 1], train_df['text'], model='word')
         config['variables']['nBestFactorWord'] = 100 / len(vocab_word)
 
     # Compute predictions using word and character n-gram models (additionaly one focussing on punctuation can be added)
     preds_word, probs_word = word_gram(train_df, test_df, config)
+    print('hello')
     preds_char, probs_char = char_gram(train_df, test_df, config)
     # preds_char_dist, probs_char_dist = char_dist_gram(train_df, test_df, config)
 

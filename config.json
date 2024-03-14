@@ -10,10 +10,11 @@
     "nBestFactorChar": 0.3,
     "nBestFactorWord": 0.1,
     "lower": 0,
-    "useLSA": 1
+    "useLSA": 1,
+    "nDimensions": 500
   },
   "masking": {
-    "masking": 1,
+    "masking": 0,
     "nMasking": 1000,
     "singleMasking": 1
   },
@@ -26,7 +27,7 @@
     "problem": 1,
     "nClasses": 9
   },
-  "baseline": 0,
+  "baseline": 1,
   "randomConversations": 0,
   "confusion": 0
 }
