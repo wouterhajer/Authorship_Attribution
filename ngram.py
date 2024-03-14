@@ -11,6 +11,7 @@ from split import *
 from masking import *
 import csv
 
+
 def ngram(train_df, test_df, config, vocab_word=0):
     """
     :param train_df: Dataframe containing column 'text' for training texts and 'author' with labels for the author
@@ -43,11 +44,9 @@ def ngram(train_df, test_df, config, vocab_word=0):
         config['variables']['nBestFactorWord'] = 100 / len(vocab_word)
 
     # Compute predictions using word and character n-gram models (additionaly one focussing on punctuation can be added)
-    preds_word, probs_word = word_gram(train_df, test_df, config)
-    print('hello')
-    preds_char, probs_char = char_gram(train_df, test_df, config)
-    # preds_char_dist, probs_char_dist = char_dist_gram(train_df, test_df, config)
-
+    preds_word, probs_word = SVM_classifier(train_df, test_df, config, model='word')
+    preds_char, probs_char = SVM_classifier(train_df, test_df, config, model='char-std')
+    # preds_char_dist, probs_char_dist = SVM_classifier(train_df, test_df, config, model='char-dist')
 
     # Soft Voting procedure (combines the votes of the individual classifier)
     candidates = list(set(train_df['author']))
@@ -71,17 +70,18 @@ def ngram(train_df, test_df, config, vocab_word=0):
 
     return avg_preds, preds_char, preds_word, test_authors, sure  # , avg_probs
 
+
 if __name__ == '__main__':
     start = time.time()
     with open('config.json') as f:
         config = json.load(f)
 
     # Random Seed at file level
-    random_seed = 13
+    random_seed = 20
     np.random.seed(random_seed)
     random.seed(random_seed)
 
-    full_df,train_df, test_df, background_vocab = create_df('txt', config)
+    full_df, train_df, test_df, background_vocab = create_df('txt', config)
 
     # Background vocabulary based on dutch subtitles, lowers performance
     """
@@ -139,16 +139,16 @@ if __name__ == '__main__':
             score += 1
             if sure[i]:
                 score_sure += 1
-        elif test_authors[i] == avg_preds[i]+1 and list(test_df['author'])[i] % 2 == 1:
+        elif test_authors[i] == avg_preds[i] + 1 and list(test_df['author'])[i] % 2 == 1:
             score_partner += 1
-        elif test_authors[i] == avg_preds[i]-1 and list(test_df['author'])[i] % 2 == 0:
+        elif test_authors[i] == avg_preds[i] - 1 and list(test_df['author'])[i] % 2 == 0:
             score_partner += 1
         else:
             score_rest += 1
 
-    print('Score = ' + str(score / len(sure)) + ', random chance = ' + str(1/len(set(test_authors))))
+    print('Score = ' + str(score / len(sure)) + ', random chance = ' + str(1 / len(set(test_authors))))
     print('Score partner = ' + str(score_partner / len(sure)) + ', random chance = ' + str(1 / len(set(test_authors))))
-    print('Score rest = ' + str(score_rest / len(sure)) + ', random chance = ' + str(1-2 / len(set(test_authors))))
+    print('Score rest = ' + str(score_rest / len(sure)) + ', random chance = ' + str(1 - 2 / len(set(test_authors))))
 
     """
     print('Percentage sure: ' + str(sure.count(True) / len(sure)))
