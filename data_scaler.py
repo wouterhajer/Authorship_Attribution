@@ -15,7 +15,6 @@ def data_scaler(train_df,test_df,config,model = 'char-std'):
         print('No model specified')
     lower = bool(config['variables']['lower'])
     use_LSA = bool(config['variables']['useLSA'])
-
     vocab = extend_vocabulary(range, train_df['text'], model=model)
 
     ## initialize tf-idf vectorizer for n-gram model (captures content) ##
@@ -26,6 +25,8 @@ def data_scaler(train_df,test_df,config,model = 'char-std'):
     train_data = vectorizer.fit_transform(train_df['text']).toarray()
 
     n_best = int(len(vectorizer.idf_) * n_best_factor)
+    if bool(config['baseline']):
+        n_best = 100
 
     idx_w = np.argsort(vectorizer.idf_)[:n_best]
 

@@ -19,13 +19,17 @@ import time
 import itertools
 from multiclass_classifier import binary_classifier
 
-def real_probas(word,char,model):
+
+def model_scores(train_word, truth_word, test_word, train_char, truth_char, test_char, model):
     if model == 'both':
-        return (word+char)/2
+        word = binary_classifier(train_word, truth_word, test_word)
+        char = binary_classifier(train_char, truth_char, test_char)
+        return (word + char) / 2
     elif model == 'word':
-        return word
+        return binary_classifier(train_word, truth_word, test_word)
     elif model == 'char':
-        return char
+        return binary_classifier(train_char, truth_char, test_char)
+
 
 with open('config.json') as f:
     config = json.load(f)
@@ -40,30 +44,19 @@ full_df, train_df, test_df, vocab_word = create_df('txt', config, p_test=0.125)
 # If masking is turned on replace all words outside top n_masking with asterisks
 n_masking = config['masking']['nMasking']
 if bool(config['masking']['masking']):
-    config['masking']['nBestFactorWord'] = 1
-
+    config['variables']['nBestFactorWord'] = 1
+    config['variables']['nBestFactorChar'] = 1
     if vocab_word == 0:
         vocab_word = extend_vocabulary([1, 1], train_df['text'], model='word')
-    vocab_word = vocab_word[:n_masking]
-    print(vocab_word)
-    vocab_word = [x.lower() for x in vocab_word]
-    train_df = mask(train_df, vocab_word, config)
-    test_df = mask(test_df, vocab_word, config)
-    full_df = mask(full_df, vocab_word, config)
+    vocab_masking = vocab_word[:n_masking]
+    print(vocab_masking)
+    vocab_masking = [x.lower() for x in vocab_masking]
+    full_df = mask(full_df, vocab_masking, config)
 
 # Encode author labels
 label_encoder = LabelEncoder()
-train_df['author'] = label_encoder.fit_transform(train_df['author'])
-test_df['author'] = label_encoder.transform(test_df['author'])
-full_df['author'] = label_encoder.transform(full_df['author'])
+full_df['author'] = label_encoder.fit_transform(full_df['author'])
 # full_df = pd.concat([train_df,test_df])
-
-df = full_df.copy()
-a = df['conversation'].unique()
-combinations = []
-for comb in itertools.combinations(a, 7):
-    rest = list(set(a) - set(comb))
-    combinations.append([list(comb), list(rest)])
 
 # Shuffle the training data
 # train_df = train_df.sample(frac=1)
@@ -72,8 +65,6 @@ for comb in itertools.combinations(a, 7):
 if bool(config['baseline']):
     config['variables']['wordRange'] = [1, 1]
     config['variables']['model'] = "word"
-    vocab_word = extend_vocabulary([1, 1], train_df['text'], model='word')
-    config['variables']['nBestFactorWord'] = 100 / len(vocab_word)
     config['variables']['useLSA'] = 0
 
 char_range = tuple(config['variables']['charRange'])
@@ -82,25 +73,42 @@ n_best_factor = config['variables']['nBestFactorChar']
 lower = bool(config['variables']['lower'])
 use_LSA = bool(config['variables']['useLSA'])
 model = config['variables']['model']
-
+n_authors = config['variables']['nAuthors']
 cllr_avg = np.zeros(4)
-lr = []
-true = []
-# combinations = [([1,2,4,5,6,7,8],[3])]
+
+# Limit the authors to nAuthors
+authors = list(set(full_df.author))
+reduced_df = full_df.loc[full_df['author'].isin(authors[:n_authors])]
+additional_df = full_df.loc[full_df['author'].isin(authors[n_authors:2 * n_authors])]
+
+df = reduced_df.copy()
+a = df['conversation'].unique()
+combinations = []
+for comb in itertools.combinations(a, 7):
+    rest = list(set(a) - set(comb))
+    combinations.append([list(comb), list(rest)])
+
+#combinations = [([1, 2, 4, 5, 6, 7, 8], [3])]
+validation_lr = np.zeros(len(combinations) * n_authors ** 2)
+additional_lr = np.zeros(len(combinations) * n_authors ** 2)
+validation_truth = np.zeros(len(combinations) * n_authors ** 2)
 for i, comb in enumerate(combinations):
     print(i)
     del train_df
     del test_df
-    df = full_df.copy()
+    df = reduced_df.copy()
 
     # Use random or deterministic split
     if bool(config['randomConversations']):
         train_df, test_df = train_test_split(df, test_size=0.125, stratify=df[['author']])
     else:
-        train_df, test_df = split(df, 0.125, comb, confusion=bool(config['confusion']))
+        # For now only works without confusion
+        train_df, test_df = split(df, 0.125, comb, confusion=False)
 
     train_df = train_df.reset_index(drop=True)
     test_df = test_df.reset_index(drop=True)
+
+    test_df = pd.concat([test_df, additional_df[additional_df['conversation'] == comb[1][0]]])
 
     scaled_train_data_word, scaled_test_data_word = data_scaler(train_df, test_df, config, model='word')
     scaled_train_data_char, scaled_test_data_char = data_scaler(train_df, test_df, config, model='char-std')
@@ -111,81 +119,84 @@ for i, comb in enumerate(combinations):
     print(f"Test conversation: {comb[1]}")
     for suspect in range(0, len(set(train_df['author']))):
         train_df['h1'] = [1 if author == suspect else 0 for author in train_df['author']]
+        test_df['h1'] = [1 if author == suspect else 0 for author in test_df['author']]
 
-        h1_cali = []
-        h2_cali = []
-
-        for c in conversations:
+        calibration_scores = np.zeros(len(conversations) * n_authors)
+        calibration_truth = np.zeros(len(conversations) * n_authors)
+        for j, c in enumerate(conversations):
             # c is conversation in calibration set, all others go in training set
             train = train_df.index[train_df['conversation'] != c].tolist()
             calibrate = train_df.index[train_df['conversation'] == c].tolist()
-
-            probas_word = binary_classifier(scaled_train_data_word[train], train_df['h1'][train],
+            """
+            scores_word = binary_classifier(scaled_train_data_word[train], train_df['h1'][train],
                                             scaled_train_data_word[calibrate])
-            probas_char = binary_classifier(scaled_train_data_char[train], train_df['h1'][train],
+            scores_char = binary_classifier(scaled_train_data_char[train], train_df['h1'][train],
                                             scaled_train_data_char[calibrate])
-            probas = real_probas(probas_word, probas_char, model)
-            h1_cali.extend([probas[i] for i in range(len(probas)) if list(train_df['h1'][calibrate])[i] == 1])
-            h2_cali.extend([probas[i] for i in range(len(probas)) if list(train_df['h1'][calibrate])[i] == 0])
+            """
+            scores = model_scores(scaled_train_data_word[train], train_df['h1'][train],
+                                  scaled_train_data_word[calibrate], scaled_train_data_char[train],
+                                  train_df['h1'][train], scaled_train_data_char[calibrate], model)
 
-        scorer = CalibratedClassifierCV(OneVsRestClassifier(SVC(C=1, kernel='linear', gamma='auto')))
-        calibrator = lir.KDECalibrator(bandwidth='silverman')
+            calibration_scores[j * n_authors:(j + 1) * n_authors] = scores
+            calibration_truth[j * n_authors:(j + 1) * n_authors] = np.array(train_df['h1'][calibrate])
+        """
+        scores_word = binary_classifier(scaled_train_data_word, train_df['h1'],
+                                        scaled_test_data_word)
+        scores_char = binary_classifier(scaled_train_data_char, train_df['h1'],
+                                        scaled_test_data_char)
+        """
 
-        scorer.fit(scaled_train_data_word, train_df['h1'])
-        dissimilarity_scores_train = np.array(h1_cali + h2_cali)
-        dissimilarity_scores_test = scorer.predict_proba(scaled_test_data_word)
+        validation_scores = model_scores(scaled_train_data_word, train_df['h1'],
+                                         scaled_test_data_word, scaled_train_data_char,
+                                         train_df['h1'], scaled_test_data_char, model)
 
-        hypothesis_train = np.array(['H1'] * len(h1_cali) + ['H2'] * len(h2_cali))
-        calibrator.fit(dissimilarity_scores_train, hypothesis_train == 'H1')
+        calibrator = lir.KDECalibrator(bandwidth='silverman')  # [0.01,0.1]
+        calibrator.fit(calibration_scores, calibration_truth == 1)
         bounded_calibrator = lir.ELUBbounder(calibrator)
+        bounded_calibrator.fit(calibration_scores, calibration_truth == 1)
+        lrs_validation = bounded_calibrator.transform(validation_scores)
 
-        lrs_train = bounded_calibrator.fit_transform(dissimilarity_scores_train, hypothesis_train == 'H1')
-        lrs_test = bounded_calibrator.transform(dissimilarity_scores_test[:, 0])
+        k = i * n_authors ** 2 + suspect * n_authors
+        validation_lr[k:k + n_authors] = lrs_validation[:n_authors]
+        additional_lr[k:k + n_authors] = lrs_validation[n_authors:2*n_authors]
+        validation_truth[k:k + n_authors] = np.array(test_df['h1'])[:n_authors]
 
-        lr.extend(lrs_test)
-        true_test = [1 if author == suspect else 0 for author in test_df['author']]
-        true.extend(true_test)
-        lr_split.extend(lrs_test)
-        true_split.extend(true_test)
         time.sleep(0.01)
-        cllr = lir.metrics.cllr(np.array(lrs_test), np.array(true_test))
-        cllr_min = lir.metrics.cllr_min(np.array(lrs_test), np.array(true_test))
+        cllr = lir.metrics.cllr(validation_lr[k:k + n_authors], validation_truth[k:k + n_authors])
+        cllr_min = lir.metrics.cllr_min(validation_lr[k:k + n_authors], validation_truth[k:k + n_authors])
         cllr_cal = cllr - cllr_min
         cllr_avg = cllr_avg + np.array([cllr, cllr_min, cllr_cal, 1])
+        print(f"Average Cllr: {cllr_avg[0] / cllr_avg[3]:.3f}, Cllr_min: {cllr_avg[1] / cllr_avg[3]:.3f}\
+                , Cllr_cal: {cllr_avg[2] / cllr_avg[3]:.3f}")
+        ones_list = np.ones(len(calibration_truth))
+        """
+        with lir.plotting.show() as ax:
+            ax.calibrator_fit(calibrator, score_range=[0, 1], resolution = 1000)
+            ax.score_distribution(scores=calibration_scores[calibration_truth == 1],
+                                  y=ones_list[calibration_truth == 1],
+                                  bins=np.linspace(0, 1, 9), weighted=True)
+            ax.score_distribution(scores=calibration_scores[calibration_truth == 0],
+                                  y=ones_list[calibration_truth == 0]*0,
+                                  bins=np.linspace(0, 1, 41), weighted=True)
+            ax.xlabel('SVM score')
+            H1_legend = mpatches.Patch(color='tab:blue', alpha=.3, label='$H_1$-true')
+            H2_legend = mpatches.Patch(color='tab:orange', alpha=.3, label='$H_2$-true')
+            ax.legend()
+            plt.show()
 
-    ones_list = np.ones(len(hypothesis_train))
-    """
     with lir.plotting.show() as ax:
-        ax.calibrator_fit(calibrator, score_range=[0, 1], resolution = 1000)
-        ax.score_distribution(scores=dissimilarity_scores_train[hypothesis_train == 'H1'],
-                              y=ones_list[hypothesis_train == 'H1'],
-                              bins=np.linspace(0, 1, 9), weighted=True)
-        ax.score_distribution(scores=dissimilarity_scores_train[hypothesis_train == 'H2'],
-                              y=ones_list[hypothesis_train == 'H2']*0,
-                              bins=np.linspace(0, 1, 41), weighted=True)
-        ax.xlabel('SVM score')
-        H1_legend = mpatches.Patch(color='tab:blue', alpha=.3, label='$H_1$-true')
-        H2_legend = mpatches.Patch(color='tab:orange', alpha=.3, label='$H_2$-true')
-        ax.legend()
-        plt.show()
-
-    with lir.plotting.show() as ax:
-        ax.tippett(np.array(lr[-len(set(train_df['author']))**2:]), np.array(true[-len(set(train_df['author']))**2:]))
+        ax.tippett(validation_lr[i*n_authors**2:(i+1)*n_authors**2], validation_truth[i*n_authors**2:(i+1)*n_authors**2])
     plt.show()
     """
 
-plt.scatter(dissimilarity_scores_test[true_test == 1], np.log10(lrs_test)[true_test == 1])
-plt.scatter(dissimilarity_scores_test[true_test == 0], np.log10(lrs_test)[true_test == 0])
-plt.show()
 
-print(f"Nauthors: {len(set(train_df['author']))}")
-index = [i for i in range(len(true)) if true[i] == 1]
 
-h1_lrs = np.array(lr)[[i for i in range(len(true)) if true[i] == 1]]
-index = [i for i in range(len(true)) if true[i] == 0]
-h2_lrs = np.array(lr)[[i for i in range(len(true)) if true[i] == 0]]
-cllr = lir.metrics.cllr(np.array(lr), np.array(true))
-cllr_min = lir.metrics.cllr_min(np.array(lr), np.array(true))
+print(f"Nauthors: {n_authors}")
+
+h1_lrs = validation_lr[validation_truth == 1]
+h2_lrs = validation_lr[validation_truth == 0]
+cllr = lir.metrics.cllr(validation_lr, validation_truth)
+cllr_min = lir.metrics.cllr_min(validation_lr, validation_truth)
 cllr_cal = cllr - cllr_min
 print(f"Cllr: {cllr:.3f}, Cllr_min: {cllr_min:.3f}, Cllr_cal: {cllr_cal:.3f}")
 print(f"Average Cllr: {cllr_avg[0] / cllr_avg[3]:.3f}, Cllr_min: {cllr_avg[1] / cllr_avg[3]:.3f}\
@@ -197,7 +208,27 @@ print(f"H1 samples with LR < 1: {freq1[0] * 100:.3f}%, H2 samples with LR > 1: {
 print(f"H1 samples with LR < 100: {(freq1[0] + freq1[1]) * 100:.3f}%, H2 samples with LR > 100: {freq2[2] * 100:.3f}%")
 print(f"H1 sample with lowest LR: {np.min(h1_lrs):.3f}, H2 sample with highest LR: {np.max(h2_lrs):.3f}")
 print(f"H1 sample with highest LR: {np.max(h1_lrs):.3f}, H2 sample with lowest LR: {np.min(h2_lrs):.3f}")
-
+"""
+for j in range(n_authors):
+    avg = np.zeros(n_authors)
+    for i in range(len(combinations)):
+        avg += np.log10(additional_lr[i*n_authors**2+j*n_authors:i*n_authors**2+(j+1)*n_authors])
+    avg /= len(combinations)
+    x = np.linspace(51,100,50)
+    plt.scatter(x,avg)
+    plt.show()
+"""
 with lir.plotting.show() as ax:
-    ax.tippett(np.array(lr), np.array(true))
+    ax.tippett(validation_lr, validation_truth)
+    lr_1 = np.log10(additional_lr)
+    xplot1 = np.linspace(np.min(lr_1), np.max(lr_1), 100)
+    perc1 = (sum(i >= xplot1 for i in lr_1) / len(lr_1)) * 100
+    ax.plot(xplot1, perc1, color='g', label='LRs given $\mathregular{H_2}$ outside training set')
+    ax.legend()
+plt.show()
+
+plt.scatter(validation_scores[:n_authors][validation_truth[k:k + n_authors] == 1],
+            np.log10(validation_lr[k:k + n_authors])[validation_truth[k:k + n_authors] == 1])
+plt.scatter(validation_scores[:n_authors][validation_truth[k:k + n_authors] == 0],
+            np.log10(validation_lr[k:k + n_authors])[validation_truth[k:k + n_authors] == 0])
 plt.show()

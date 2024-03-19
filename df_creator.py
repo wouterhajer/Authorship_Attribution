@@ -115,8 +115,7 @@ def create_df(path, config, p_test = 0.25):
     df = df[df['author'].isin(v[v >= 8].index)]
     df = df.reset_index(drop=True)
 
-    # Limit the authors to nAuthors
-    df = df.loc[df['author'] < config['variables']['nAuthors']]
+
     if bool(config['randomConversations']):
         train_df, test_df = train_test_split(df, test_size=p_test, stratify=df[['author']])
     else:

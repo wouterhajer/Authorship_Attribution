@@ -1,7 +1,7 @@
 {
   "variables": {
     "nWords": 100,
-    "nAuthors": 75,
+    "nAuthors": 50,
     "trueLength": 0,
     "concatenate": 0,
     "wordRange": [1,2],
