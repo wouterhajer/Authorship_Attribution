@@ -227,6 +227,10 @@ with lir.plotting.show() as ax:
     ax.legend()
 plt.show()
 
+with lir.plotting.show() as ax:
+    ax.pav(validation_lr, validation_truth)
+plt.show()
+
 plt.scatter(validation_scores[:n_authors][validation_truth[k:k + n_authors] == 1],
             np.log10(validation_lr[k:k + n_authors])[validation_truth[k:k + n_authors] == 1])
 plt.scatter(validation_scores[:n_authors][validation_truth[k:k + n_authors] == 0],
