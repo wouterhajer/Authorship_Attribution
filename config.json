@@ -1,7 +1,7 @@
 {
   "variables": {
     "nWords": 100,
-    "nAuthors": 10,
+    "nAuthors": 50,
     "trueLength": 0,
     "concatenate": 0,
     "wordRange": [1,2],
@@ -11,11 +11,11 @@
     "nBestFactorWord": 0.1,
     "lower": 0,
     "useLSA": 1,
-    "model": "both"
+    "model": "char"
   },
 
   "masking": {
-    "masking": 0,
+    "masking": 1,
     "nMasking": 1000,
     "singleMasking": 1
   },
