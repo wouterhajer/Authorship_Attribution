@@ -11,7 +11,7 @@
     "nBestFactorWord": 0.1,
     "lower": 0,
     "useLSA": 1,
-    "model": "char"
+    "model": "both"
   },
 
   "masking": {
@@ -20,9 +20,9 @@
     "singleMasking": 1
   },
   "BERT": {
-    "epochs": 20,
+    "epochs": 5,
     "dropout": 0.5,
-    "learningRate": 2e-5
+    "learningRate": 1e-5
   },
   "Pan2019": {
     "problem": 1,

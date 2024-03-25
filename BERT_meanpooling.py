@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset
 from sklearn.metrics import f1_score
 import gc
+import numpy as np
 
 def finetune_bert_meanpooling(model, train_dataloader, epochs, config):
     # Set up optimizer and loss function
@@ -97,7 +98,7 @@ class CustomDataset(Dataset):
         sample = {'encodings': self.encodings[idx], 'labels': self.labels[idx]}
         return sample
 
-def validate_bert_meanpooling(model, val_encodings, encoded_known_authors):
+def validate_bert_meanpooling(model, val_encodings, encoded_known_authors = 0):
     """
     :param model: The finetuned BertMeanPoolingClassifier to be evaluated
     :param val_encodings: Encodings of validation texts, split in overlapping chunks of 512 tokens
@@ -106,14 +107,17 @@ def validate_bert_meanpooling(model, val_encodings, encoded_known_authors):
     Validation loop for meanpooling BERT calculating a F1-score and returning predictions for each text.
     """
     preds = []
+    scores = np.zeros(len(val_encodings))
     model.eval()
     with torch.no_grad():
         for i,label in enumerate(val_encodings):
             # Tokenize and encode the validation data
             output = model.inference(val_encodings[i])
+            scores[i] = (torch.exp(output[0])/(torch.exp(output[0])+torch.exp(output[1]))).detach().cpu().numpy()
             val_predictions = torch.argmax(output, dim=0)
             preds.append(val_predictions.detach().cpu().numpy())
 
-    f1 = f1_score(encoded_known_authors, preds, average='macro')
-    print('F1 Score average:' + str(f1))
-    return preds
+    if encoded_known_authors != 0:
+        f1 = f1_score(encoded_known_authors, preds, average='macro')
+        print('F1 Score average:' + str(f1))
+    return preds, scores
