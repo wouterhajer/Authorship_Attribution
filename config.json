@@ -1,7 +1,7 @@
 {
   "variables": {
     "nWords": 100,
-    "nAuthors": 5,
+    "nAuthors": 50,
     "trueLength": 0,
     "concatenate": 0,
     "wordRange": [1,2],
@@ -15,7 +15,7 @@
   },
 
   "masking": {
-    "masking": 0,
+    "masking": 1,
     "nMasking": 1000,
     "singleMasking": 1
   },

@@ -136,6 +136,7 @@ for i, comb in enumerate(combinations):
             scores = model_scores(scaled_train_data_word[train], train_df['h1'][train],
                                   scaled_train_data_word[calibrate], scaled_train_data_char[train],
                                   train_df['h1'][train], scaled_train_data_char[calibrate], model)
+            scores = scores**4 # np.exp(scores-1)
 
             calibration_scores[j * n_authors:(j + 1) * n_authors] = scores
             calibration_truth[j * n_authors:(j + 1) * n_authors] = np.array(train_df['h1'][calibrate])
@@ -149,6 +150,9 @@ for i, comb in enumerate(combinations):
         validation_scores = model_scores(scaled_train_data_word, train_df['h1'],
                                          scaled_test_data_word, scaled_train_data_char,
                                          train_df['h1'], scaled_test_data_char, model)
+        print(validation_scores)
+        validation_scores = validation_scores**4 # np.exp(validation_scores-1)
+        print(validation_scores)
 
         calibrator = lir.KDECalibrator(bandwidth='silverman')  # [0.01,0.1]
         calibrator.fit(calibration_scores, calibration_truth == 1)
@@ -169,7 +173,7 @@ for i, comb in enumerate(combinations):
         print(f"Average Cllr: {cllr_avg[0] / cllr_avg[3]:.3f}, Cllr_min: {cllr_avg[1] / cllr_avg[3]:.3f}\
                 , Cllr_cal: {cllr_avg[2] / cllr_avg[3]:.3f}")
         ones_list = np.ones(len(calibration_truth))
-        """
+
         with lir.plotting.show() as ax:
             ax.calibrator_fit(calibrator, score_range=[0, 1], resolution = 1000)
             ax.score_distribution(scores=calibration_scores[calibration_truth == 1],
@@ -183,7 +187,7 @@ for i, comb in enumerate(combinations):
             H2_legend = mpatches.Patch(color='tab:orange', alpha=.3, label='$H_2$-true')
             ax.legend()
             plt.show()
-
+    """
     with lir.plotting.show() as ax:
         ax.tippett(validation_lr[i*n_authors**2:(i+1)*n_authors**2], validation_truth[i*n_authors**2:(i+1)*n_authors**2])
     plt.show()
