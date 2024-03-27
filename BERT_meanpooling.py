@@ -98,7 +98,7 @@ class CustomDataset(Dataset):
         sample = {'encodings': self.encodings[idx], 'labels': self.labels[idx]}
         return sample
 
-def validate_bert_meanpooling(model, val_encodings, encoded_known_authors = 0):
+def validate_bert_meanpooling(model, val_encodings, encoded_known_authors = np.zeros(9)):
     """
     :param model: The finetuned BertMeanPoolingClassifier to be evaluated
     :param val_encodings: Encodings of validation texts, split in overlapping chunks of 512 tokens
@@ -117,7 +117,7 @@ def validate_bert_meanpooling(model, val_encodings, encoded_known_authors = 0):
             val_predictions = torch.argmax(output, dim=0)
             preds.append(val_predictions.detach().cpu().numpy())
 
-    if encoded_known_authors != 0:
+    if encoded_known_authors.any() != 0:
         f1 = f1_score(encoded_known_authors, preds, average='macro')
         print('F1 Score average:' + str(f1))
     return preds, scores

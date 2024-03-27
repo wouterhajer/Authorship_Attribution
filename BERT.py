@@ -46,10 +46,20 @@ problem = 'problem00001'
 with open('config.json') as f:
     config = json.load(f)
 
+n_authors = config['variables']['nAuthors']
+
 train_df, test_df = create_df_PAN(path, problem)
 print(train_df)
-train_df, test_df, background_vocab = create_df('txt', config) #create_df_PAN(path, problem)
-print (train_df)
+full_df, train_df, test_df, background_vocab = create_df('txt', config) #create_df_PAN(path, problem)
+print(train_df)
+
+# Encode author labels
+label_encoder = LabelEncoder()
+train_df['author_id'] = label_encoder.fit_transform(train_df['author'])
+# Limit the authors to nAuthors
+authors = list(set(full_df.author))
+train_df = train_df.loc[train_df['author'].isin(authors[:n_authors])]
+test_df = test_df.loc[test_df['author'].isin(authors[:n_authors])]
 
 if bool(config['masking']['masking']):
     vocab_word = []
@@ -63,6 +73,8 @@ if bool(config['masking']['masking']):
     print(train_df['text'][0])
     test_df = mask(test_df, vocab_word, config)
 
+
+
 # Set tokenizer and tokenize training and test texts
 # tokenizer = RobertaTokenizer.from_pretrained('DTAI-KULeuven/robbert-2023-dutch-base')
 tokenizer = BertTokenizer.from_pretrained('GroNLP/bert-base-dutch-cased')  #
@@ -72,9 +84,7 @@ val_encodings = transform_list_of_texts(test_df['text'], tokenizer, 510, 256, 25
                                         device=device)
 print(set(train_df['author']))
 print(set(test_df['author']))
-# Encode author labels
-label_encoder = LabelEncoder()
-train_df['author_id'] = label_encoder.fit_transform(train_df['author'])
+
 encoded_known_authors = label_encoder.transform(test_df['author'])
 train_labels = torch.tensor(train_df['author_id'], dtype=torch.long).to(device)
 N_classes = len(list(set(encoded_known_authors)))
@@ -97,7 +107,7 @@ for j in range(8):
     model = finetune_bert_meanpooling(model, train_dataloader, epochs, config)
 
     print('validation set')
-    preds = validate_bert_meanpooling(model, val_encodings, encoded_known_authors)
+    preds, scores = validate_bert_meanpooling(model, val_encodings, encoded_known_authors)
     avg_preds = label_encoder.inverse_transform(preds)
     author_number = [author for author in test_df['author']]
     conf = confusion_matrix(test_df['author'], avg_preds, normalize='true')

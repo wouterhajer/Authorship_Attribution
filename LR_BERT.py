@@ -199,7 +199,7 @@ for i, comb in enumerate(combinations):
                                   bins=np.linspace(0, 1, 9), weighted=True)
             ax.score_distribution(scores=calibration_scores[calibration_truth == 0],
                                   y=ones_list[calibration_truth == 0] * 0,
-                                  bins=np.linspace(0, 1, 41), weighted=True)
+                                  bins=np.linspace(0, 1, 9), weighted=True)
             ax.xlabel('SVM score')
             H1_legend = mpatches.Patch(color='tab:blue', alpha=.3, label='$H_1$-true')
             H2_legend = mpatches.Patch(color='tab:orange', alpha=.3, label='$H_2$-true')
