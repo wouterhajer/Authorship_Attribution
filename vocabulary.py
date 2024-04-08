@@ -1,5 +1,8 @@
 import re
 
+"""
+Modified from Boeninghoff et all
+"""
 
 def regex(string: str, model: str):
     """
@@ -12,8 +15,6 @@ def regex(string: str, model: str):
 
     if model == 'word':
         # if model is a word n-gram model, remove all punctuation
-        string = re.sub(r"""[*-]""", ' ', string)
-
         string = ''.join([char for char in string if char.isalnum()])
 
     if model == 'char-dist':
@@ -21,6 +22,7 @@ def regex(string: str, model: str):
         # string = ''.join(['*' if char.isalpha() else char for char in string])
 
     return string
+
 
 def frequency(tokens: list):
     """
@@ -54,9 +56,8 @@ def represent_text(text, n: int, model: str):
             tokens.extend(punct_unigrams)
 
     elif model == 'word':
-        #print(text.split()[:10])
-        #print(re.split(' |[*]|-', text)[:10])
-        text = [regex(word, model) for word in text.split() if regex(word, model)]
+        # Either use re.split(' |[*]|-', text) or re.split(' ', text) depending on the interpretation of uh, v, s and u
+        text = [regex(word, model) for word in re.split(' ', text) if regex(word, model)]
         tokens = [' '.join(text[i:i + n]) for i in range(len(text) - n + 1)]
 
     freq = frequency(tokens)

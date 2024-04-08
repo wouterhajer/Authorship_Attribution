@@ -16,10 +16,11 @@ def Multiclass_classifier(train_df, test_df, config, model):
     scaled_train_data, scaled_test_data = data_scaler(train_df, test_df, config, model=model)
     char = CalibratedClassifierCV(OneVsRestClassifier(SVC(C=1, kernel='linear',
                                                           gamma='auto')))
-    char.fit(scaled_train_data, train_df['author'])
+    char.fit(scaled_train_data, train_df['author_id'])
     preds_char = char.predict(scaled_test_data)
     probas_char = char.predict_proba(scaled_test_data)
     return preds_char, probas_char
+
 
 def binary_classifier(train_data, truth, test_data):
     char = CalibratedClassifierCV(OneVsRestClassifier(SVC(C=1, kernel='linear', gamma='auto')))
