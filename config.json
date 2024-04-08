@@ -1,7 +1,7 @@
 {
   "variables": {
     "nWords": 100,
-    "nAuthors": 50,
+    "nAuthors": 5,
     "trueLength": 0,
     "concatenate": 0,
     "wordRange": [1,2],
@@ -16,7 +16,7 @@
 
   "masking": {
     "masking": 1,
-    "nMasking": 1000,
+    "nMasking": 5000,
     "singleMasking": 1
   },
   "BERT": {

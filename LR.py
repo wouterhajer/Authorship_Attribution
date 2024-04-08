@@ -1,8 +1,8 @@
 import lir
 from lir import *
 from df_creator import *
-from masking import *
-from data_scaler import *
+from masking import mask
+from data_scaler import data_scaler
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.svm import SVC
 from sklearn.multiclass import OneVsRestClassifier
@@ -56,7 +56,6 @@ if bool(config['masking']['masking']):
 # Encode author labels
 label_encoder = LabelEncoder()
 full_df['author'] = label_encoder.fit_transform(full_df['author'])
-# full_df = pd.concat([train_df,test_df])
 
 # Shuffle the training data
 # train_df = train_df.sample(frac=1)
@@ -88,7 +87,7 @@ for comb in itertools.combinations(a, 7):
     rest = list(set(a) - set(comb))
     combinations.append([list(comb), list(rest)])
 
-#combinations = [([1, 2, 4, 5, 6, 7, 8], [3])]
+combinations = [([1, 2, 4, 5, 6, 7, 8], [3])]
 validation_lr = np.zeros(len(combinations) * n_authors ** 2)
 additional_lr = np.zeros(len(combinations) * n_authors ** 2)
 validation_truth = np.zeros(len(combinations) * n_authors ** 2)
@@ -174,19 +173,19 @@ for i, comb in enumerate(combinations):
                 , Cllr_cal: {cllr_avg[2] / cllr_avg[3]:.3f}")
         ones_list = np.ones(len(calibration_truth))
 
-        with lir.plotting.show() as ax:
-            ax.calibrator_fit(calibrator, score_range=[0, 1], resolution = 1000)
-            ax.score_distribution(scores=calibration_scores[calibration_truth == 1],
-                                  y=ones_list[calibration_truth == 1],
-                                  bins=np.linspace(0, 1, 9), weighted=True)
-            ax.score_distribution(scores=calibration_scores[calibration_truth == 0],
-                                  y=ones_list[calibration_truth == 0]*0,
-                                  bins=np.linspace(0, 1, 41), weighted=True)
-            ax.xlabel('SVM score')
-            H1_legend = mpatches.Patch(color='tab:blue', alpha=.3, label='$H_1$-true')
-            H2_legend = mpatches.Patch(color='tab:orange', alpha=.3, label='$H_2$-true')
-            ax.legend()
-            plt.show()
+    with lir.plotting.show() as ax:
+        ax.calibrator_fit(calibrator, score_range=[0, 1], resolution = 1000)
+        ax.score_distribution(scores=calibration_scores[calibration_truth == 1],
+                              y=ones_list[calibration_truth == 1],
+                              bins=np.linspace(0, 1, 9), weighted=True)
+        ax.score_distribution(scores=calibration_scores[calibration_truth == 0],
+                              y=ones_list[calibration_truth == 0]*0,
+                              bins=np.linspace(0, 1, 41), weighted=True)
+        ax.xlabel('SVM score')
+        H1_legend = mpatches.Patch(color='tab:blue', alpha=.3, label='$H_1$-true')
+        H2_legend = mpatches.Patch(color='tab:orange', alpha=.3, label='$H_2$-true')
+        ax.legend()
+        plt.show()
     """
     with lir.plotting.show() as ax:
         ax.tippett(validation_lr[i*n_authors**2:(i+1)*n_authors**2], validation_truth[i*n_authors**2:(i+1)*n_authors**2])

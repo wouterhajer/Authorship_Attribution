@@ -34,5 +34,4 @@ def mask(df, vocab_word, config):
                 else:
                     i = j
         df.loc[k, 'text'] = text
-    #print(df)
     return df

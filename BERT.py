@@ -1,24 +1,7 @@
 import matplotlib.pyplot as plt
-import numpy as np
-import random
-from transformers import BertTokenizer, BertForSequenceClassification, RobertaTokenizer, \
-    RobertaForSequenceClassification
-import torch.nn as nn
-from torch.utils.data import DataLoader, TensorDataset
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report, f1_score, ConfusionMatrixDisplay, confusion_matrix
-from transformers import BatchEncoding, PreTrainedTokenizerBase
-import time
 from text_transformer import *
-from abc import ABC, abstractmethod
-import json
-from pathlib import Path
-from typing import Any, Optional, Union
-from torch.nn import BCELoss, DataParallel, Module, Linear, Sigmoid
-from torch.optim import AdamW, Optimizer
-from torch.utils.data import Dataset, RandomSampler, SequentialSampler, DataLoader
-from transformers import AutoModel, AutoTokenizer, BatchEncoding, BertModel, PreTrainedTokenizerBase, RobertaModel
 import csv
 import torch
 from transformers import BertTokenizer, BertModel, AdamW

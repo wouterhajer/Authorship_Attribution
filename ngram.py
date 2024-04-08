@@ -9,7 +9,15 @@ from sklearn.metrics import f1_score, confusion_matrix, ConfusionMatrixDisplay
 from df_creator import create_df
 from masking import mask
 from vocabulary import extend_vocabulary
-import csv
+import pandas as pd
+import argparse
+import os
+from split import split
+from sklearn.model_selection import train_test_split
+
+"""
+Inspired form Boeninghoff et al  
+"""
 
 
 def ngram(train_df, test_df, config, vocab_word=0):
@@ -22,7 +30,7 @@ def ngram(train_df, test_df, config, vocab_word=0):
     Additionally a list with true authors and a list of booleans corresponding with the confidence of the prediction
     """
     # Shuffle the training data
-    train_df = train_df.sample(frac=1)
+    #train_df = train_df.sample(frac=1)
 
     # If masking is turned on replace all words outside top n_masking with asterisks
     n_masking = config['masking']['nMasking']
@@ -35,7 +43,7 @@ def ngram(train_df, test_df, config, vocab_word=0):
         vocab_word = [x.lower() for x in vocab_word]
         train_df = mask(train_df, vocab_word, config)
         test_df = mask(test_df, vocab_word, config)
-
+    print(train_df)
     # If baseline is true a top 100 word-1-gram model is used
     if bool(config['baseline']):
         config['variables']['useLSA'] = 0
@@ -56,24 +64,25 @@ def ngram(train_df, test_df, config, vocab_word=0):
     avg_preds = []
 
     for i, text_probs in enumerate(avg_probs):
+        print(i)
+        print(text_probs)
         ind_best = np.argmax(text_probs)
         avg_preds.append(candidates[ind_best])
 
     return avg_preds, preds_char, preds_word, test_authors  # , avg_probs
 
 
-if __name__ == '__main__':
+def test_ngram(args,config):
     start = time.time()
-    with open('config.json') as f:
-        config = json.load(f)
 
     # Random Seed at file level
     random_seed = 20
     np.random.seed(random_seed)
     random.seed(random_seed)
 
-    full_df, train_df, test_df, background_vocab = create_df('txt', config)
 
+    df_file = args.input_path + os.sep + args.corpus_name + ".csv"
+    full_df = pd.read_csv(df_file)
     # Background vocabulary based on dutch subtitles, lowers performance
     """
     vocab_word = []
@@ -88,12 +97,31 @@ if __name__ == '__main__':
             i += 1
     background_vocab = vocab_word[1:]
     """
+    vocab_file = args.input_path + os.sep + 'vocab_' + args.corpus_name + ".txt"
+    vocab_word = []
+
+    with open(vocab_file, 'r', encoding="utf-8") as fp:
+        for line in fp:
+            x = line[:-1]
+            vocab_word.append(x)
+    #full_df, train_df, test_df, vocab_word = create_df('txt', config)
     # Encode author labels
     label_encoder = LabelEncoder()
-    train_df['author'] = label_encoder.fit_transform(train_df['author'])
-    test_df['author'] = label_encoder.transform(test_df['author'])
+    full_df['author'] = label_encoder.fit_transform(full_df['author'])
 
-    avg_preds, preds_char, preds_word, test_authors = ngram(train_df, test_df, config, background_vocab)
+    # Limit the authors to nAuthors
+    authors = list(set(full_df.author))
+    df = full_df.loc[full_df['author'].isin(authors[:config['variables']['nAuthors']])]
+
+    conv = ([2,5,4,7,1,6],[8,3])
+    # Use random or deterministic split
+    if bool(config['randomConversations']):
+        train_df, test_df = train_test_split(df, test_size=0.25, stratify=df[['author']])
+    else:
+        # For now only works without confusion
+        train_df, test_df = split(df, 0.25, conversations=conv, confusion=bool(config['confusion']))
+
+    avg_preds, preds_char, preds_word, test_authors = ngram(train_df, test_df, config, vocab_word)
 
     avg_preds = label_encoder.inverse_transform(avg_preds)
     preds_char = label_encoder.inverse_transform(preds_char)
@@ -135,8 +163,10 @@ if __name__ == '__main__':
             score_rest += 1
 
     print('Score = ' + str(score / len(avg_preds)) + ', random chance = ' + str(1 / len(set(test_authors))))
-    print('Score partner = ' + str(score_partner / len(avg_preds)) + ', random chance = ' + str(1 / len(set(test_authors))))
-    print('Score rest = ' + str(score_rest / len(avg_preds)) + ', random chance = ' + str(1 - 2 / len(set(test_authors))))
+    print('Score partner = ' + str(score_partner / len(avg_preds)) + ', random chance = ' + str(
+        1 / len(set(test_authors))))
+    print(
+        'Score rest = ' + str(score_rest / len(avg_preds)) + ', random chance = ' + str(1 - 2 / len(set(test_authors))))
 
     print('Total time: ' + str(time.time() - start) + ' seconds')
     conf = confusion_matrix(test_authors, avg_preds, normalize='true')
@@ -144,3 +174,21 @@ if __name__ == '__main__':
     cmd.plot()
 
     plt.show()
+
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('input_path', help="Choose the path to the input")
+    parser.add_argument('corpus_name', help="Choose the name of the corpus")
+    parser.add_argument('output_path', help="Choose the path to output folder")
+    args = parser.parse_args()
+
+    with open('config.json') as f:
+        config = json.load(f)
+    test_ngram(args, config)
+
+
+
+if __name__ == '__main__':
+    main()
