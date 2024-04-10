@@ -1,9 +1,6 @@
 {
   "variables": {
-    "nWords": 100,
     "nAuthors": 50,
-    "trueLength": 0,
-    "concatenate": 0,
     "wordRange": [1,2],
     "charRange": [2,5],
     "charDistRange": [1,3],
@@ -13,7 +10,6 @@
     "useLSA": 1,
     "model": "both"
   },
-
   "masking": {
     "masking": 1,
     "nMasking": 5000,

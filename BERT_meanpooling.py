@@ -6,8 +6,11 @@ import gc
 import numpy as np
 
 def finetune_bert_meanpooling(model, train_dataloader, epochs, config):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # Set up optimizer and loss function
     optimizer = torch.optim.AdamW(model.parameters(), lr=config['BERT']['learningRate'])
+    n_authors = config['variables']['nAuthors']
+    # For binary classification we can use weight = torch.tensor([n_authors-1.0,1.0])
     criterion = torch.nn.CrossEntropyLoss()
     # Currently using Number of authors as batch size
     N_classes = config['Pan2019']['nClasses']

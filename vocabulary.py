@@ -10,7 +10,6 @@ def regex(string: str, model: str):
     """
     string = re.sub("[0-9]", "0", string)  # each digit will be represented as a 0
     string = re.sub(r'( \n| \t)+', '', string)
-    # text = re.sub("[0-9]+(([.,^])[0-9]+)?", "#", text)
     string = re.sub("https:\\\+([a-zA-Z0-9.]+)?", "@", string)
 
     if model == 'word':
@@ -19,7 +18,6 @@ def regex(string: str, model: str):
 
     if model == 'char-dist':
         string = re.sub("[a-zA-Z]+", "*", string)
-        # string = ''.join(['*' if char.isalpha() else char for char in string])
 
     return string
 
