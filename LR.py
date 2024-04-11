@@ -74,17 +74,26 @@ def LR(args,config):
 
         train_df = train_df.reset_index(drop=True)
         test_df = test_df.reset_index(drop=True)
-
+        n = 1
         calibration_df = train_df.copy()
+
         new_df = pd.DataFrame(columns=['text', 'author', 'conversation', 'author_id'])
 
         for index, row in calibration_df.iterrows():
             splits = row['text'].split('.')
-            n = 3
+            
             for k in range(n):
                 m = len(splits) / n
+                if n == 1:
+                    m = 0
+                m = 0
+                #inds = set(random.sample(list(range(len(splits))), int(m)))
+                inds = list(range(int(k*m), int((k+1)*m)))
+
+                text = [n for i, n in enumerate(splits) if i not in inds]
+                #text = splits
                 new_df = pd.concat([new_df, pd.DataFrame(
-                    {'text': ['.'.join(splits[int(k * m):int((k + 1) * m)])], 'author': [row['author']],
+                    {'text': ['.'.join(text)], 'author': [row['author']],
                      'conversation': [row['conversation']], 'author_id': [row['author_id']]})],
                                    ignore_index=True)
 
@@ -93,12 +102,15 @@ def LR(args,config):
 
         pd.set_option('display.max_columns', None)
         test_df = pd.concat([test_df, additional_df[additional_df['conversation'] == comb[1][0]]])
-
+        #add_df = additional_df[additional_df['conversation'].isin(comb[0])]
         scaled_train_data_word, scaled_test_data_word = data_scaler(train_df, test_df, config, model='word')
         scaled_train_data_char, scaled_test_data_char = data_scaler(train_df, test_df, config, model='char-std')
 
         a, scaled_cali_data_word = data_scaler(train_df, calibration_df, config, model='word')
         a, scaled_cali_data_char = data_scaler(train_df, calibration_df, config, model='char-std')
+
+        #a, scaled_add_data_word = data_scaler(train_df, add_df, config, model='word')
+        #a, scaled_add_data_char = data_scaler(train_df, add_df, config, model='char-std')
 
         conversations = list(set(train_df['conversation']))
         print(f"Test conversation: {comb[1]}")
@@ -117,7 +129,7 @@ def LR(args,config):
                                       scaled_cali_data_word[calibrate2], scaled_train_data_char[train],
                                       train_df['h1'][train], scaled_cali_data_char[calibrate2], model)
 
-                scores = np.log(scores/(1-scores))
+                #scores = np.log(scores/(1-scores))
 
                 calibration_scores[n*j * n_authors:n*(j + 1) * n_authors] = scores
                 calibration_truth[n*j * n_authors:n*(j + 1) * n_authors] = np.array(calibration_df['h1'][calibrate2])
@@ -126,10 +138,11 @@ def LR(args,config):
                                              scaled_test_data_word, scaled_train_data_char,
                                              train_df['h1'], scaled_test_data_char, model)
 
-            validation_scores = np.log(validation_scores / (1 - validation_scores))
+            #validation_scores = np.log(validation_scores / (1 - validation_scores))
 
-            calibrator = lir.KDECalibrator(bandwidth='silverman')  # [0.01,0.1]
+            calibrator = lir.KDECalibrator(bandwidth='silverman')
             calibrator.fit(calibration_scores, calibration_truth == 1)
+
             bounded_calibrator = lir.ELUBbounder(calibrator)
             bounded_calibrator.fit(calibration_scores, calibration_truth == 1)
             lrs_validation = bounded_calibrator.transform(validation_scores)
@@ -147,26 +160,16 @@ def LR(args,config):
             cllr_min = lir.metrics.cllr_min(validation_lr[k:k + n_authors], validation_truth[k:k + n_authors])
             cllr_cal = cllr - cllr_min
             cllr_avg = cllr_avg + np.array([cllr, cllr_min, cllr_cal, 1])
-            print(f"Average Cllr: {cllr_avg[0] / cllr_avg[3]:.3f}, Cllr_min: {cllr_avg[1] / cllr_avg[3]:.3f}\
-                    , Cllr_cal: {cllr_avg[2] / cllr_avg[3]:.3f}")
+            #print(f"Average Cllr: {cllr_avg[0] / cllr_avg[3]:.3f}, Cllr_min: {cllr_avg[1] / cllr_avg[3]:.3f}\
+            #        , Cllr_cal: {cllr_avg[2] / cllr_avg[3]:.3f}")
             ones_list = np.ones(len(calibration_truth))
 
         with lir.plotting.show() as ax:
-            """
-            ax.calibrator_fit(calibrator, score_range=[0, 1], resolution = 1000)
-            
-            ax.score_distribution(scores=calibration_scores[calibration_truth == 1],
-                                  y=ones_list[calibration_truth == 1],
-                                  bins=np.linspace(0, 1, 9), weighted=True)
-            ax.score_distribution(scores=calibration_scores[calibration_truth == 0],
-                                  y=ones_list[calibration_truth == 0]*0,
-                                  bins=np.linspace(0, 1, 41), weighted=True)
-                    """
             ax.calibrator_fit(calibrator, score_range=[np.min(calibration_scores), np.max(calibration_scores)], resolution=1000)
 
             ax.score_distribution(scores=calibration_scores[calibration_truth == 1],
                                   y=ones_list[calibration_truth == 1],
-                                  bins=np.linspace(np.min(calibration_scores), np.max(calibration_scores), 11), weighted=True)
+                                  bins=np.linspace(np.min(calibration_scores), np.max(calibration_scores), 21), weighted=True)
             ax.score_distribution(scores=calibration_scores[calibration_truth == 0],
                                   y=ones_list[calibration_truth == 0] * 0,
                                   bins=np.linspace(np.min(calibration_scores), np.max(calibration_scores), 21), weighted=True)
@@ -175,6 +178,7 @@ def LR(args,config):
             H2_legend = mpatches.Patch(color='tab:orange', alpha=.3, label='$H_2$-true')
             ax.legend()
             plt.show()
+
     """
     with lir.plotting.show() as ax:
         ax.tippett(validation_lr[i*n_authors**2:(i+1)*n_authors**2], validation_truth[i*n_authors**2:(i+1)*n_authors**2])
@@ -189,11 +193,31 @@ def LR(args,config):
     cllr_cal = cllr - cllr_min
     print(f"Cllr: {cllr:.3f}, Cllr_min: {cllr_min:.3f}, Cllr_cal: {cllr_cal:.3f}")
     print(f"Average Cllr: {cllr_avg[0] / cllr_avg[3]:.3f}, Cllr_min: {cllr_avg[1] / cllr_avg[3]:.3f}\
-            , Cllr_cal: {cllr_avg[2] / cllr_avg[3]:.3f}")
+                , Cllr_cal: {cllr_avg[2] / cllr_avg[3]:.3f}")
+    cllrs = np.zeros(n_authors)
+    cllrs_min = np.zeros(n_authors)
+    cllrs_cal = np.zeros(n_authors)
+    for j in range(n_authors):
+        lr_a = np.array([lr for i,lr in enumerate(validation_lr) if ((j + 1) * n_authors > i % n_authors**2 >= j * n_authors)])
+        truth_a = np.array([a for i,a in enumerate(validation_truth) if ((j + 1) * n_authors > i % n_authors**2 >= j * n_authors)])
+        cllrs[j] = lir.metrics.cllr(lr_a, truth_a)
+        cllrs_min[j] = lir.metrics.cllr_min(lr_a, truth_a)
+        cllrs_cal[j] = cllrs[j] - cllrs_min[j]
+        if j % 10 == 0:
+            with lir.plotting.show() as ax:
+                ax.pav(lr_a, truth_a)
+            plt.show()
+
+    plt.plot(cllrs)
+    plt.plot(cllrs_min)
+    plt.plot(cllrs_cal)
+    plt.show()
+    print(f"Average Cllr: {np.mean(cllrs):.3f}, Cllr_min: {np.mean(cllrs_min):.3f}, Cllr_cal: {np.mean(cllrs_cal):.3f}")
     output_file = args.output_path + os.sep + 'LR_' + args.corpus_name + ".csv"
     with open(output_file, 'a', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow([round(cllr, 3), round(cllr_min, 3),round(cllr_cal, 3), config['variables']['nAuthors'], \
+        writer.writerow([round(cllr, 3), round(cllr_min, 3),round(cllr_cal, 3), round(np.mean(cllrs_min),3),\
+                         round(np.mean(cllrs_cal),3),config['variables']['nAuthors'], \
                          config['masking']['masking'], config['masking']['nMasking'], config['variables']['model']])
 
 

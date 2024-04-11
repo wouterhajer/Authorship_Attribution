@@ -8,11 +8,11 @@
     "nBestFactorWord": 0.1,
     "lower": 0,
     "useLSA": 1,
-    "model": "both"
+    "model": "char"
   },
   "masking": {
     "masking": 1,
-    "nMasking": 5000,
+    "nMasking": 1000,
     "singleMasking": 1
   },
   "BERT": {
