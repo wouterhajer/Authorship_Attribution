@@ -16,6 +16,7 @@ import pandas as pd
 from df_loader import load_df
 import os
 import csv
+import plotting
 
 
 def model_scores(train_word, truth_word, test_word, train_char, truth_char, test_char, model):
@@ -164,15 +165,16 @@ def LR(args,config):
             #        , Cllr_cal: {cllr_avg[2] / cllr_avg[3]:.3f}")
             ones_list = np.ones(len(calibration_truth))
 
-        with lir.plotting.show() as ax:
-            ax.calibrator_fit(calibrator, score_range=[np.min(calibration_scores), np.max(calibration_scores)], resolution=1000)
+        with plotting.show() as ax:
+            d = (np.max(calibration_scores) - np.min(calibration_scores))/8
+            ax.calibrator_fit(calibrator, score_range=[np.min(calibration_scores)-d, np.max(calibration_scores)+d], resolution=1000)
 
             ax.score_distribution(scores=calibration_scores[calibration_truth == 1],
                                   y=ones_list[calibration_truth == 1],
-                                  bins=np.linspace(np.min(calibration_scores), np.max(calibration_scores), 21), weighted=True)
+                                  bins=np.linspace(np.min(calibration_scores)-d, np.max(calibration_scores)+d, 11), weighted=True)
             ax.score_distribution(scores=calibration_scores[calibration_truth == 0],
                                   y=ones_list[calibration_truth == 0] * 0,
-                                  bins=np.linspace(np.min(calibration_scores), np.max(calibration_scores), 21), weighted=True)
+                                  bins=np.linspace(np.min(calibration_scores)-d, np.max(calibration_scores)+d, 21), weighted=True)
             ax.xlabel('SVM score')
             H1_legend = mpatches.Patch(color='tab:blue', alpha=.3, label='$H_1$-true')
             H2_legend = mpatches.Patch(color='tab:orange', alpha=.3, label='$H_2$-true')
@@ -203,7 +205,7 @@ def LR(args,config):
         cllrs[j] = lir.metrics.cllr(lr_a, truth_a)
         cllrs_min[j] = lir.metrics.cllr_min(lr_a, truth_a)
         cllrs_cal[j] = cllrs[j] - cllrs_min[j]
-        if j % 10 == 0:
+        if j % 60 == 0:
             with lir.plotting.show() as ax:
                 ax.pav(lr_a, truth_a)
             plt.show()

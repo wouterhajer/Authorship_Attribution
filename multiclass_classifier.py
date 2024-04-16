@@ -23,11 +23,13 @@ def Multiclass_classifier(train_df, test_df, config, model):
 
 
 def binary_classifier(train_data, truth, test_data):
-    #char = CalibratedClassifierCV(OneVsRestClassifier(SVC(C=1, kernel='linear')))
-    char2 = SVC(kernel='linear', C=1, probability=True, class_weight='balanced')
+    """
+    char = CalibratedClassifierCV(OneVsRestClassifier(SVC(C=1, kernel='linear')))
+    char.fit(train_data, truth)
+    probas_char = char.predict_proba(test_data)
+    """
+    char2 = SVC(kernel='linear', C=1)
     char2.fit(train_data, truth)
     decision_values = char2.decision_function(test_data)
 
-    #char.fit(train_data, truth)
-    #probas_char = char.predict_proba(test_data)
-    return decision_values #probas_char[:,0] #
+    return -decision_values # probas_char[:,0] #
