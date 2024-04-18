@@ -2,8 +2,10 @@ import lir
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.isotonic import IsotonicRegression
+from plotting import tippett
 
-
+#Code for building a toy example
+'''
 def tippett(lrs, y, plot_type=1, ax=plt):
     """
     plots empirical cumulative distribution functions of same-source and
@@ -44,9 +46,11 @@ y_hat = ir.fit_transform(x,y)
 plt.scatter(x,y)
 plt.plot(x,y_hat, color = 'tab:orange')
 plt.show()
-"""
+'''
 validation_lr = np.array([100,5,0.1,1,0.01,10])
 validation_truth = np.array([1,1,0,0,0,0])
+validation_lr = np.array([10,1,1,0.1])
+validation_truth = np.array([1,0,1,0])
 
 h1_lrs = validation_lr[validation_truth == 1]
 h2_lrs = validation_lr[validation_truth == 0]
@@ -54,13 +58,6 @@ cllr = lir.metrics.cllr(validation_lr, validation_truth)
 cllr_min = lir.metrics.cllr_min(validation_lr, validation_truth)
 cllr_cal = cllr - cllr_min
 print(f"Cllr: {cllr:.3f}, Cllr_min: {cllr_min:.3f}, Cllr_cal: {cllr_cal:.3f}")
-
-freq1 = np.histogram(h1_lrs, bins=[-np.inf] + [1, 100] + [np.inf])[0] / len(h1_lrs)
-freq2 = np.histogram(h2_lrs, bins=[-np.inf] + [1, 100] + [np.inf])[0] / len(h2_lrs)
-print(f"H1 samples with LR < 1: {freq1[0] * 100:.3f}%, H2 samples with LR > 1: {(freq2[1] + freq2[2]) * 100:.3f}%")
-print(f"H1 samples with LR < 100: {(freq1[0] + freq1[1]) * 100:.3f}%, H2 samples with LR > 100: {freq2[2] * 100:.3f}%")
-print(f"H1 sample with lowest LR: {np.min(h1_lrs):.3f}, H2 sample with highest LR: {np.max(h2_lrs):.3f}")
-print(f"H1 sample with highest LR: {np.max(h1_lrs):.3f}, H2 sample with lowest LR: {np.min(h2_lrs):.3f}")
 
 tippett(validation_lr, validation_truth)
 plt.show()
@@ -72,4 +69,3 @@ plt.show()
 with lir.plotting.show() as ax:
     ax.ece(validation_lr, validation_truth)
 plt.show()
-"""

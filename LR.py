@@ -170,7 +170,7 @@ def LR(args,config):
             ones_list = np.ones(len(calibration_truth))
         print(avg/total)
         with plotting.show() as ax:
-            d = (np.max(calibration_scores) - np.min(calibration_scores))/8
+            d = (np.max(calibration_scores) - np.min(calibration_scores))/5
             ax.calibrator_fit(calibrator, score_range=[np.min(calibration_scores)-d, np.max(calibration_scores)+d], resolution=1000)
 
             ax.score_distribution(scores=calibration_scores[calibration_truth == 1],
@@ -180,8 +180,6 @@ def LR(args,config):
                                   y=ones_list[calibration_truth == 0] * 0,
                                   bins=np.linspace(np.min(calibration_scores)-d, np.max(calibration_scores)+d, 21), weighted=True)
             ax.xlabel('SVM score')
-            H1_legend = mpatches.Patch(color='tab:blue', alpha=.3, label='$H_1$-true')
-            H2_legend = mpatches.Patch(color='tab:orange', alpha=.3, label='$H_2$-true')
             ax.legend()
             plt.show()
 
@@ -210,16 +208,17 @@ def LR(args,config):
         cllrs_min[j] = lir.metrics.cllr_min(lr_a, truth_a)
         cllrs_cal[j] = cllrs[j] - cllrs_min[j]
         if j % 60 == 0:
-            with lir.plotting.show() as ax:
+            with plotting.show() as ax:
                 ax.pav(lr_a, truth_a)
             plt.show()
+            
     authors = np.unique(train_df['author'])
-    print(authors)
     plt.scatter(authors,cllrs,label = 'cllr',marker='o')
     plt.scatter(authors,cllrs_min,label = 'cllr_min',marker='s')
     plt.scatter(authors, cllrs_cal,label = 'cllr_cal',marker = 'P')
     plt.legend()
     plt.show()
+
     print(f"Average Cllr: {np.mean(cllrs):.3f}, Cllr_min: {np.mean(cllrs_min):.3f}, Cllr_cal: {np.mean(cllrs_cal):.3f}")
     output_file = args.output_path + os.sep + 'LR_' + args.corpus_name + ".csv"
     with open(output_file, 'a', newline='') as file:
@@ -236,7 +235,7 @@ def LR(args,config):
     print(f"H1 sample with lowest LR: {np.min(h1_lrs):.3f}, H2 sample with highest LR: {np.max(h2_lrs):.3f}")
     print(f"H1 sample with highest LR: {np.max(h1_lrs):.3f}, H2 sample with lowest LR: {np.min(h2_lrs):.3f}")
 
-    with lir.plotting.show() as ax:
+    with plotting.show() as ax:
         ax.tippett(validation_lr, validation_truth)
         lr_1 = np.log10(additional_lr)
         xplot1 = np.linspace(np.min(lr_1), np.max(lr_1), 100)
@@ -245,11 +244,11 @@ def LR(args,config):
         ax.legend()
     plt.show()
 
-    with lir.plotting.show() as ax:
+    with plotting.show() as ax:
         ax.pav(validation_lr, validation_truth)
     plt.show()
 
-    with lir.plotting.show() as ax:
+    with plotting.show() as ax:
         ax.ece(validation_lr, validation_truth)
     plt.show()
 

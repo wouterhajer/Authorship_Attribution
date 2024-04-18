@@ -216,19 +216,19 @@ def tippett(lrs, y, plot_type=1, ax=plt):
     """
     log_lrs = np.log10(lrs)
 
-    lr_0, lr_1 = util.Xy_to_Xn(log_lrs, y)
-    xplot0 = np.linspace(np.min(lr_0), np.max(lr_0), 100)
-    xplot1 = np.linspace(np.min(lr_1), np.max(lr_1), 100)
-    perc0 = (sum(i >= xplot0 for i in lr_0) / len(lr_0)) * 100
+    lr_0, lr_1 = lir.util.Xy_to_Xn(log_lrs, y)
+    xplot = np.linspace(np.min(log_lrs), np.max(log_lrs)+0.0001, 10000)
+    perc0 = (sum(i >= xplot for i in lr_0) / len(lr_0)) * 100
     if plot_type == 1:
-        perc1 = (sum(i >= xplot1 for i in lr_1) / len(lr_1)) * 100
+        perc1 = (sum(i >= xplot for i in lr_1) / len(lr_1)) * 100
     elif plot_type == 2:
-        perc1 = (sum(i <= xplot1 for i in lr_1) / len(lr_1)) * 100
+        perc1 = (sum(i <= xplot for i in lr_1) / len(lr_1)) * 100
     else:
         raise ValueError("plot_type must be either 1 or 2.")
 
-    ax.plot(xplot1, perc1, color='b', label='LRs given $\mathregular{H_1}$')
-    ax.plot(xplot0, perc0, color='r', label='LRs given $\mathregular{H_2}$')
+
+    ax.plot(xplot, perc1, color='b', label='LRs given $\mathregular{H_p}$')
+    ax.plot(xplot, perc0, color='r', label='LRs given $\mathregular{H_d}$')
     ax.axvline(x=0, color='k', linestyle='--')
     ax.set_xlabel('log$_{10}$(LR)')
     ax.set_ylabel('Cumulative proportion')
