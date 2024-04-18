@@ -62,6 +62,8 @@ def LR(args,config):
     validation_lr = np.zeros(len(combinations) * n_authors ** 2)
     additional_lr = np.zeros(len(combinations) * n_authors ** 2)
     validation_truth = np.zeros(len(combinations) * n_authors ** 2)
+    avg = 0
+    total = 0
     for i, comb in enumerate(combinations):
         print(i)
         df = reduced_df.copy()
@@ -147,7 +149,9 @@ def LR(args,config):
             bounded_calibrator = lir.ELUBbounder(calibrator)
             bounded_calibrator.fit(calibration_scores, calibration_truth == 1)
             lrs_validation = bounded_calibrator.transform(validation_scores)
+            avg += np.sum(lrs_validation == np.min(lrs_validation))
 
+            total += len(lrs_validation)-1
             k = i * n_authors ** 2 + suspect * n_authors
             validation_lr[k:k + n_authors] = lrs_validation[:n_authors]
             additional_lr[k:k + n_authors] = lrs_validation[n_authors:2*n_authors]
@@ -164,7 +168,7 @@ def LR(args,config):
             #print(f"Average Cllr: {cllr_avg[0] / cllr_avg[3]:.3f}, Cllr_min: {cllr_avg[1] / cllr_avg[3]:.3f}\
             #        , Cllr_cal: {cllr_avg[2] / cllr_avg[3]:.3f}")
             ones_list = np.ones(len(calibration_truth))
-
+        print(avg/total)
         with plotting.show() as ax:
             d = (np.max(calibration_scores) - np.min(calibration_scores))/8
             ax.calibrator_fit(calibrator, score_range=[np.min(calibration_scores)-d, np.max(calibration_scores)+d], resolution=1000)
@@ -209,10 +213,12 @@ def LR(args,config):
             with lir.plotting.show() as ax:
                 ax.pav(lr_a, truth_a)
             plt.show()
-
-    plt.plot(cllrs)
-    plt.plot(cllrs_min)
-    plt.plot(cllrs_cal)
+    authors = np.unique(train_df['author'])
+    print(authors)
+    plt.scatter(authors,cllrs,label = 'cllr',marker='o')
+    plt.scatter(authors,cllrs_min,label = 'cllr_min',marker='s')
+    plt.scatter(authors, cllrs_cal,label = 'cllr_cal',marker = 'P')
+    plt.legend()
     plt.show()
     print(f"Average Cllr: {np.mean(cllrs):.3f}, Cllr_min: {np.mean(cllrs_min):.3f}, Cllr_cal: {np.mean(cllrs_cal):.3f}")
     output_file = args.output_path + os.sep + 'LR_' + args.corpus_name + ".csv"
