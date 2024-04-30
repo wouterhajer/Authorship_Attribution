@@ -46,6 +46,7 @@ def frida_convert(conv):
     :param conv: test conversations for the odd authors
     :return: training and test conversations for the even authors
     """
+    print(conv)
     test_conv = []
     if conv[0] % 8 != conv[1] - 1:
         test_conv.append((conv[0]) % 8 + 1)

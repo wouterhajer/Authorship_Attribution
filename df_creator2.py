@@ -23,45 +23,65 @@ def create_df(args, config, p_test = 0.25):
 
     # keep track of the author of the last document
     author = 0
+    if args.corpus_name == "Frida":
+        # Hard code conversation numbers for speaker with an odd or even number
+        odd = [1, 2, 3, 4, 5, 6, 7, 8]
+        even = [3, 4, 1, 2, 7, 8, 5, 6]
 
-    # Hard code conversation numbers for speaker with an odd or even number
-    odd = [1, 2, 3, 4, 5, 6, 7, 8]
-    even = [3, 4, 1, 2, 7, 8, 5, 6]
+        for i, v in enumerate(sorted(files)):
+            if v[-5] == '1' and 310 > int(v[6:9]) > 0 and v[9] != 'a':
 
-    for i, v in enumerate(sorted(files)):
-        if v[-5] == '1' and 310 > int(v[6:9]) > 0 and v[9] != 'a':
+                # Check if author corresponds to current author and count the conversation
+                if author != int(v[6:9]):
+                    author = int(v[6:9])
+                    j = 0
+                else:
+                    j += 1
 
-            # Check if author corresponds to current author and count the conversation
-            if author != int(v[6:9]):
-                author = int(v[6:9])
-                j = 0
-            else:
-                j += 1
+                # Assgin the conversation based on whether the author number is odd or even
+                if author % 2 == 1:
+                    conversation = odd[j]
+                else:
+                    conversation = even[j]
+                f = codecs.open(v, 'r', encoding='utf-8')
+                label = int(v[6:9])
+                text = f.read()
+                text = text.split('\r\n')
+                text2 = []
+                for lines in text[1:-1]:
+                    line = lines.split('\t')
+                    text2.append(line[2])
 
-            # Assgin the conversation based on whether the author number is odd or even
-            if author % 2 == 1:
-                conversation = odd[j]
-            else:
-                conversation = even[j]
+                text3 = ' '.join(text2[:])
+
+                if len(text3) < 200:
+                    print(text3)
+                    print(v)
+                    continue
+
+                texts.append((text3, label, conversation))
+                f.close()
+    elif args.corpus_name == "abcnl1":
+        for i, v in enumerate(sorted(files)):
             f = codecs.open(v, 'r', encoding='utf-8')
-            label = int(v[6:9])
             text = f.read()
-            text = text.split('\r\n')
+            text = text.split('\n\t')
             text2 = []
-            for lines in text[1:-1]:
-                line = lines.split('\t')
-                text2.append(line[2])
-
+            for j, line in enumerate(text):
+                if j == 0:
+                    line = line[1:]
+                text2.append(line)
             text3 = ' '.join(text2[:])
-
-            if len(text3)<200:
-                print(text3)
-                print(v)
-                continue
-
-            texts.append((text3, label, conversation))
-            f.close()
-
+            author = int(v[9])
+            if v[10] == 'a':
+                conv = int(v[11])
+            elif v[10] == 'd':
+                conv = 3 + int(v[11])
+            elif v[10] == 'f':
+                conv = 6 + int(v[11])
+            #author = (author+conv) % 8 + 1
+            #print(author)
+            texts.append((text3, author, conv))
     # Convert into dataframe
     df = pd.DataFrame(texts, columns=['text', 'author', 'conversation'])
 
@@ -82,7 +102,6 @@ def create_df(args, config, p_test = 0.25):
     else:
         print('hello')
         train_df, test_df = split(df, p_test, confusion=bool(config['confusion']))
-
 
     return df, train_df, test_df, background_vocab
 

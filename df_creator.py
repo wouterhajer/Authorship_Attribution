@@ -15,7 +15,6 @@ def create_df(path, config, p_test = 0.25):
     This function is modified per dataset to always output the expected dataframe
     """
     # Reads all text files located in the 'path' and assigns them to 'label' class
-    n_words = config["variables"]["nWords"]
 
     files = glob.glob(path + os.sep + '*.txt')
 
@@ -59,54 +58,8 @@ def create_df(path, config, p_test = 0.25):
                 print(v)
                 continue
 
-            # If trueLength is set to 1, cut off messages at that amount of words and get rid of shorter messages
-            # Not in active use, depreciated
-            if bool(config["variables"]["trueLength"]) and not bool(config["variables"]["concatenate"]):
-                # Makes the messages all of the same amount of words (Nwords in the config file)
-
-                words = text3.split(' ')
-
-                # Removing these markers drastically lowers performance!
-                """
-                words2= []
-                for word in words:
-                    if word != 'ggg' and word != 'xxx':
-                        words2.append(word)
-                words = words2
-                """
-
-                if len(words) < 100:
-                    print(v)
-                    f.close()
-                    continue
-                if len(words) >= n_words:
-                    text4 = ' '.join(words[:n_words])
-                    texts.append((text4, label, conversation))
-                if len(words) >= 2 * n_words:
-                    text4 = ' '.join(words[-n_words:])
-                    texts.append((text4, label, conversation))
-            else:
-                if len(text3) > 10:
-                    texts.append((text3, label, conversation))
-            f.close()
-
     # Convert into dataframe
     df = pd.DataFrame(texts, columns=['text', 'author', 'conversation'])
-
-
-
-    # Concatenate all texts of a single author and split in messages of even length
-    # Not in active use, depreciated
-    if config["variables"]["concatenate"]:
-        new_texts = []
-        for author in set(list(df['author'])):
-            text = df.loc[df["author"] == author]
-            conc = ' '.join(list(text['text']))
-            words = conc.split(' ')
-            for i in range(len(words) // n_words):
-                sentence = words[i * n_words:(i + 1) * n_words]
-                new_texts.append((' '.join(sentence[:]), author))
-        df = pd.DataFrame(new_texts, columns=['text', 'author'])
 
     background_vocab = extend_vocabulary([1, 1], df['text'], model='word')
 
@@ -114,12 +67,10 @@ def create_df(path, config, p_test = 0.25):
     v = df['author'].value_counts()
     df = df[df['author'].isin(v[v >= 8].index)]
     df = df.reset_index(drop=True)
-
-
+    print(p_test)
     if bool(config['randomConversations']):
         train_df, test_df = train_test_split(df, test_size=p_test, stratify=df[['author']])
     else:
-        print('hello')
         train_df, test_df = split(df, p_test, confusion=bool(config['confusion']))
 
     return df, train_df, test_df, background_vocab

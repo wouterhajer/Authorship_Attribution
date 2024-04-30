@@ -10,6 +10,7 @@ import itertools
 from ngram import ngram
 import argparse
 from df_loader import load_df
+import pandas as pd
 
 def average_f1(args, config):
     start = time.time()
@@ -32,7 +33,7 @@ def average_f1(args, config):
     # Find all conversation numbers and make all combinations of 6 in train set, 2 in test set
     a = df['conversation'].unique()
     combinations = []
-    for comb in itertools.combinations(a, 6):
+    for comb in itertools.combinations(a, len(a)-2):
         rest = list(set(a) - set(comb))
         combinations.append([list(comb), list(rest)])
 
@@ -51,7 +52,9 @@ def average_f1(args, config):
             train_df, test_df = train_test_split(df, test_size=0.25, stratify=df[['author']])
         else:
             train_df, test_df = split(df, 0.25, comb, confusion=bool(config['confusion']))
-
+        pd.set_option('display.max_columns', None)
+        #print(train_df)
+        #print(test_df)
         # Train SVMs, calculate predictions
         avg_preds, preds_char, preds_word, test_authors = ngram(train_df, test_df, config)
 

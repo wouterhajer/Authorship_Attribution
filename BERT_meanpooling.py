@@ -5,52 +5,6 @@ from sklearn.metrics import f1_score
 import gc
 import numpy as np
 
-def finetune_bert_meanpooling(model, train_dataloader, epochs, config):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    # Set up optimizer and loss function
-    optimizer = torch.optim.AdamW(model.parameters(), lr=config['BERT']['learningRate'])
-    n_authors = config['variables']['nAuthors']
-    # For binary classification we can use weight = torch.tensor([n_authors-1.0,1.0])
-    criterion = torch.nn.CrossEntropyLoss()
-    # Currently using Number of authors as batch size
-    N_classes = config['Pan2019']['nClasses']
-    N_classes = 8
-    #epochs = config['BERT']['epochs']
-    for epoch in range(epochs):
-        model.train()
-        total_loss = 0
-        i = 0
-        for batch in train_dataloader:
-            encoding, labels = batch['encodings'], batch['labels'][0]
-
-            encoding = {'input_ids': encoding['input_ids'][0],
-                        'token_type_ids': encoding['token_type_ids'][0],
-                        'attention_mask': encoding['attention_mask'][0]
-                        }
-
-            outputs = model(encoding)
-            loss = criterion(outputs, labels)
-            total_loss += loss.item()
-
-            loss.backward()
-            if i % N_classes == N_classes - 1:
-                optimizer.step()
-                optimizer.zero_grad()
-            i += 1
-
-        average_loss = total_loss / len(train_dataloader)
-        print(f"Epoch {epoch + 1}/{epochs}, Average Loss: {average_loss}")
-        # delete locals
-        del encoding
-        del outputs
-        del loss
-        # Then clean the cache
-        torch.cuda.empty_cache()
-        # then collect the garbage
-        gc.collect()
-
-    return model
-
 class BertMeanPoolingClassifier(nn.Module):
     """
     Bert model with added mean pooling layer and dense layer to handle longer texts.
@@ -60,6 +14,7 @@ class BertMeanPoolingClassifier(nn.Module):
         self.bert_model = bert_model #BertModel.from_pretrained('BERTmodels/bert-base-cased')
         self.dropout = nn.Dropout(dropout)
         self.dense = nn.Linear(in_features=768, out_features=N_classes)
+
     def forward(self, encodings):
         # Obtain BERT hidden states
         inputs = self.bert_model(**encodings)['last_hidden_state']
@@ -100,6 +55,54 @@ class CustomDataset(Dataset):
             idx = idx.tolist()
         sample = {'encodings': self.encodings[idx], 'labels': self.labels[idx]}
         return sample
+
+def finetune_bert_meanpooling(model, train_dataloader, epochs, config):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # Set up optimizer and loss function
+    optimizer = torch.optim.AdamW(model.parameters(), lr=config['BERT']['learningRate'])
+    n_authors = config['variables']['nAuthors']
+    # For binary classification we can use weight = torch.tensor([n_authors-1.0,1.0])
+    criterion = torch.nn.CrossEntropyLoss()
+    # Currently using Number of authors as batch size
+    N_classes = config['Pan2019']['nClasses']
+    N_classes = 8
+    #epochs = config['BERT']['epochs']
+    for epoch in range(epochs):
+        model.train()
+        total_loss = 0
+        i = 0
+        for batch in train_dataloader:
+            encoding, labels = batch['encodings'], batch['labels'][0]
+
+            encoding = {'input_ids': encoding['input_ids'][0],
+                        'token_type_ids': encoding['token_type_ids'][0],
+                        'attention_mask': encoding['attention_mask'][0]
+                        }
+            print(encoding)
+            outputs = model(encoding)
+            loss = criterion(outputs, labels)
+            total_loss += loss.item()
+
+            loss.backward()
+            if i % N_classes == N_classes - 1:
+                optimizer.step()
+                optimizer.zero_grad()
+            i += 1
+
+        average_loss = total_loss / len(train_dataloader)
+        print(f"Epoch {epoch + 1}/{epochs}, Average Loss: {average_loss}")
+        # delete locals
+        del encoding
+        del outputs
+        del loss
+        # Then clean the cache
+        torch.cuda.empty_cache()
+        # then collect the garbage
+        gc.collect()
+
+    return model
+
+
 
 def validate_bert_meanpooling(model, val_encodings, encoded_known_authors = np.zeros(9)):
     """

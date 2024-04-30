@@ -13,25 +13,34 @@ def transform_list_of_texts(
         stride: int,
         minimal_chunk_length: int,
         maximal_text_length: Optional[int] = None,
-        device: Optional[torch.device] = 'cpu'
-) -> BatchEncoding:
+        device: Optional[torch.device] = 'cpu') -> BatchEncoding:
     model_inputs = [
         transform_single_text(text, tokenizer, chunk_size, stride, minimal_chunk_length, maximal_text_length)
         for text in texts
     ]
     input_ids = [model_input[0].to(device) for model_input in model_inputs]
     attention_mask = [model_input[1].to(device) for model_input in model_inputs]
+    input_ids_simple = [model_input[2].to(device) for model_input in model_inputs]
+    attention_mask_simple = [model_input[3].to(device) for model_input in model_inputs]
     tokens = {"input_ids": input_ids, "attention_mask": attention_mask}
-    list = restructure_texts(BatchEncoding(tokens), device)
-    return list
+    encodings = restructure_texts(BatchEncoding(tokens), device)
+    tokens_simple = {"input_ids": input_ids_simple, "attention_mask": attention_mask_simple}
+    encodings_simple = restructure_texts(BatchEncoding(tokens_simple), device)
+    return encodings, encodings_simple
 
 
 def restructure_texts(embeddings, device):
     encodings = []
     zeros = [0] * 512
     for i in range(len(embeddings['input_ids'])):
-        encodings.append({'input_ids': embeddings['input_ids'][i], 'attention_mask': embeddings['attention_mask'][i],
-                          'token_type_ids': torch.tensor([zeros] * len(embeddings['input_ids'][i])).to(device)})
+        if len(embeddings['input_ids'][i]) == 512:
+            encodings.append(
+                {'input_ids': embeddings['input_ids'][i], 'attention_mask': embeddings['attention_mask'][i],
+                 'token_type_ids': torch.tensor(zeros).to(device)})
+        else:
+            j = len(embeddings['input_ids'][i])
+            encodings.append({'input_ids': embeddings['input_ids'][i], 'attention_mask': embeddings['attention_mask'][i],
+                              'token_type_ids': torch.tensor([zeros] * j).to(device)})
     return encodings
 
 
@@ -42,7 +51,7 @@ def transform_single_text(
         stride: int,
         minimal_chunk_length: int,
         maximal_text_length: Optional[int],
-) -> tuple[Tensor, Tensor]:
+) -> tuple[Tensor, Tensor, Tensor, Tensor]:
     """Transforms (the entire) text to model input of BERT model."""
 
     if maximal_text_length:
@@ -53,9 +62,11 @@ def transform_single_text(
     input_id_chunks, mask_chunks = split_tokens_into_smaller_chunks(tokens, chunk_size, stride, minimal_chunk_length)
     add_special_tokens_at_beginning_and_end(input_id_chunks, mask_chunks)
     add_padding_tokens(input_id_chunks, mask_chunks)
-    #print(input_id_chunks)
+    input_ids_simple = input_id_chunks[0].to(torch.int64).unsqueeze(0)
+    attention_mask_simple = mask_chunks[0].to(torch.int64).unsqueeze(0)
+
     input_ids, attention_mask = stack_tokens_from_all_chunks(input_id_chunks, mask_chunks)
-    return input_ids, attention_mask
+    return input_ids, attention_mask, input_ids_simple, attention_mask_simple
 
 
 def tokenize_whole_text(text: str, tokenizer: PreTrainedTokenizerBase) -> BatchEncoding:

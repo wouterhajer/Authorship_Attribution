@@ -36,7 +36,9 @@ def LR(args,config):
     np.random.seed(random_seed)
     random.seed(random_seed)
 
+    # Load dataframe
     full_df, config = load_df(args,config)
+
     # Encode author labels
     label_encoder = LabelEncoder()
     full_df['author_id'] = label_encoder.fit_transform(full_df['author'])
@@ -49,19 +51,28 @@ def LR(args,config):
     # Limit the authors to nAuthors
     authors = list(set(full_df.author_id))
     reduced_df = full_df.loc[full_df['author_id'].isin(authors[:n_authors])]
-    additional_df = full_df.loc[full_df['author_id'].isin(authors[n_authors:2 * n_authors])]
-
+    add = False
+    if add:
+        additional_df = full_df.loc[full_df['author_id'].isin(authors[n_authors:2 * n_authors])]
     df = reduced_df.copy()
+
+    # Make a list of possible combinations of conversations when leaving one out
     a = df['conversation'].unique()
+    n_conv = len(a)
     combinations = []
-    for comb in itertools.combinations(a, 7):
+    for comb in itertools.combinations(a, n_conv-1):
         rest = list(set(a) - set(comb))
         combinations.append([list(comb), list(rest)])
 
     #combinations = [([1, 2, 4, 3, 6, 7, 8], [5])]
+
+    # Initialize arrays for collecting resulting LRs
     validation_lr = np.zeros(len(combinations) * n_authors ** 2)
-    additional_lr = np.zeros(len(combinations) * n_authors ** 2)
+    if add:
+        additional_lr = np.zeros(len(combinations) * n_authors ** 2)
     validation_truth = np.zeros(len(combinations) * n_authors ** 2)
+
+    # Initialize scoring for number of lowerbounds
     avg = 0
     total = 0
     for i, comb in enumerate(combinations):
@@ -73,47 +84,19 @@ def LR(args,config):
             train_df, test_df = train_test_split(df, test_size=0.125, stratify=df[['author']])
         else:
             # For now only works without confusion
-            train_df, test_df = split(df, 0.125, comb, confusion=False)
+            train_df, test_df = split(df, 1/n_conv, comb, confusion=False)
 
         train_df = train_df.reset_index(drop=True)
         test_df = test_df.reset_index(drop=True)
-        n = 1
+
         calibration_df = train_df.copy()
 
-        new_df = pd.DataFrame(columns=['text', 'author', 'conversation', 'author_id'])
-
-        for index, row in calibration_df.iterrows():
-            splits = row['text'].split('.')
-            
-            for k in range(n):
-                m = len(splits) / n
-                if n == 1:
-                    m = 0
-                m = 0
-                #inds = set(random.sample(list(range(len(splits))), int(m)))
-                inds = list(range(int(k*m), int((k+1)*m)))
-
-                text = [n for i, n in enumerate(splits) if i not in inds]
-                #text = splits
-                new_df = pd.concat([new_df, pd.DataFrame(
-                    {'text': ['.'.join(text)], 'author': [row['author']],
-                     'conversation': [row['conversation']], 'author_id': [row['author_id']]})],
-                                   ignore_index=True)
-
-        new_df = new_df.reset_index(drop=True)
-        calibration_df = new_df
-
         pd.set_option('display.max_columns', None)
-        test_df = pd.concat([test_df, additional_df[additional_df['conversation'] == comb[1][0]]])
-        #add_df = additional_df[additional_df['conversation'].isin(comb[0])]
+        if add:
+            test_df = pd.concat([test_df, additional_df[additional_df['conversation'] == comb[1][0]]])
+
         scaled_train_data_word, scaled_test_data_word = data_scaler(train_df, test_df, config, model='word')
         scaled_train_data_char, scaled_test_data_char = data_scaler(train_df, test_df, config, model='char-std')
-
-        a, scaled_cali_data_word = data_scaler(train_df, calibration_df, config, model='word')
-        a, scaled_cali_data_char = data_scaler(train_df, calibration_df, config, model='char-std')
-
-        #a, scaled_add_data_word = data_scaler(train_df, add_df, config, model='word')
-        #a, scaled_add_data_char = data_scaler(train_df, add_df, config, model='char-std')
 
         conversations = list(set(train_df['conversation']))
         print(f"Test conversation: {comb[1]}")
@@ -121,40 +104,43 @@ def LR(args,config):
             train_df['h1'] = [1 if author == suspect else 0 for author in train_df['author_id']]
             test_df['h1'] = [1 if author == suspect else 0 for author in test_df['author_id']]
             calibration_df['h1'] = [1 if author == suspect else 0 for author in calibration_df['author_id']]
-            calibration_scores = np.zeros(n*len(conversations) * n_authors)
-            calibration_truth = np.zeros(n*len(conversations) * n_authors)
+            calibration_scores = np.zeros(len(conversations) * n_authors)
+            calibration_truth = np.zeros(len(conversations) * n_authors)
             for j, c in enumerate(conversations):
                 # c is conversation in calibration set, all others go in training set
                 train = train_df.index[train_df['conversation'] != c].tolist()
                 calibrate = train_df.index[train_df['conversation'] == c].tolist()
-                calibrate2 = calibration_df.index[calibration_df['conversation'] == c].tolist()
+
                 scores = model_scores(scaled_train_data_word[train], train_df['h1'][train],
-                                      scaled_cali_data_word[calibrate2], scaled_train_data_char[train],
-                                      train_df['h1'][train], scaled_cali_data_char[calibrate2], model)
+                                      scaled_train_data_word[calibrate], scaled_train_data_char[train],
+                                      train_df['h1'][train], scaled_train_data_char[calibrate], model)
 
                 #scores = np.log(scores/(1-scores))
 
-                calibration_scores[n*j * n_authors:n*(j + 1) * n_authors] = scores
-                calibration_truth[n*j * n_authors:n*(j + 1) * n_authors] = np.array(calibration_df['h1'][calibrate2])
+                calibration_scores[j * n_authors:(j + 1) * n_authors] = scores
+                calibration_truth[j * n_authors:(j + 1) * n_authors] = np.array(calibration_df['h1'][calibrate])
 
+            # Fit bounded calibrator
+            calibrator = lir.KDECalibrator(bandwidth='silverman')
+            #calibrator.fit(calibration_scores, calibration_truth == 1)
+            bounded_calibrator = lir.ELUBbounder(calibrator)
+            bounded_calibrator.fit(calibration_scores, calibration_truth == 1)
+
+            # Calculate scores on validation set
             validation_scores = model_scores(scaled_train_data_word, train_df['h1'],
                                              scaled_test_data_word, scaled_train_data_char,
                                              train_df['h1'], scaled_test_data_char, model)
 
             #validation_scores = np.log(validation_scores / (1 - validation_scores))
 
-            calibrator = lir.KDECalibrator(bandwidth='silverman')
-            calibrator.fit(calibration_scores, calibration_truth == 1)
-
-            bounded_calibrator = lir.ELUBbounder(calibrator)
-            bounded_calibrator.fit(calibration_scores, calibration_truth == 1)
+            # Calculate the corresponding validation LRs
             lrs_validation = bounded_calibrator.transform(validation_scores)
-            avg += np.sum(lrs_validation == np.min(lrs_validation))
 
-            total += len(lrs_validation)-1
+            # Dump all LRs and truth values into arrays
             k = i * n_authors ** 2 + suspect * n_authors
             validation_lr[k:k + n_authors] = lrs_validation[:n_authors]
-            additional_lr[k:k + n_authors] = lrs_validation[n_authors:2*n_authors]
+            if add:
+                additional_lr[k:k + n_authors] = lrs_validation[n_authors:2*n_authors]
             validation_truth[k:k + n_authors] = np.array(test_df['h1'])[:n_authors]
 
             # necessary wait due to limits of LIR library
@@ -165,23 +151,28 @@ def LR(args,config):
             cllr_min = lir.metrics.cllr_min(validation_lr[k:k + n_authors], validation_truth[k:k + n_authors])
             cllr_cal = cllr - cllr_min
             cllr_avg = cllr_avg + np.array([cllr, cllr_min, cllr_cal, 1])
-            #print(f"Average Cllr: {cllr_avg[0] / cllr_avg[3]:.3f}, Cllr_min: {cllr_avg[1] / cllr_avg[3]:.3f}\
-            #        , Cllr_cal: {cllr_avg[2] / cllr_avg[3]:.3f}")
-            ones_list = np.ones(len(calibration_truth))
-        print(avg/total)
-        with plotting.show() as ax:
-            d = (np.max(calibration_scores) - np.min(calibration_scores))/5
-            ax.calibrator_fit(calibrator, score_range=[np.min(calibration_scores)-d, np.max(calibration_scores)+d], resolution=1000)
 
-            ax.score_distribution(scores=calibration_scores[calibration_truth == 1],
-                                  y=ones_list[calibration_truth == 1],
-                                  bins=np.linspace(np.min(calibration_scores)-d, np.max(calibration_scores)+d, 11), weighted=True)
-            ax.score_distribution(scores=calibration_scores[calibration_truth == 0],
-                                  y=ones_list[calibration_truth == 0] * 0,
-                                  bins=np.linspace(np.min(calibration_scores)-d, np.max(calibration_scores)+d, 21), weighted=True)
-            ax.xlabel('SVM score')
-            ax.legend()
-            plt.show()
+            # Calculate how many of the LRs under H_d are equal to the lower bound.
+            avg += np.sum(lrs_validation == np.min(lrs_validation))
+            total += len(lrs_validation) - 1
+
+        print(avg/total)
+
+        #KDE plot
+    with plotting.show() as ax:
+        ones_list = np.ones(len(calibration_truth))
+        d = (np.max(calibration_scores) - np.min(calibration_scores))/5
+        ax.calibrator_fit(calibrator, score_range=[np.min(calibration_scores)-d, np.max(calibration_scores)+d], resolution=1000)
+
+        ax.score_distribution(scores=calibration_scores[calibration_truth == 1],
+                              y=ones_list[calibration_truth == 1],
+                              bins=np.linspace(np.min(calibration_scores)-d, np.max(calibration_scores)+d, 11), weighted=True)
+        ax.score_distribution(scores=calibration_scores[calibration_truth == 0],
+                              y=ones_list[calibration_truth == 0] * 0,
+                              bins=np.linspace(np.min(calibration_scores)-d, np.max(calibration_scores)+d, 21), weighted=True)
+        ax.xlabel('SVM score')
+        ax.legend()
+        plt.show()
 
     """
     with lir.plotting.show() as ax:
@@ -211,7 +202,25 @@ def LR(args,config):
             with plotting.show() as ax:
                 ax.pav(lr_a, truth_a)
             plt.show()
-            
+
+    odd = cllrs[::2]
+    even = cllrs[1::2]
+
+    print(np.corrcoef(odd,even)[0,1])
+    plt.scatter(odd, even,label = 'cllr',marker='o')
+    odd = cllrs_min[::2]
+    even = cllrs_min[1::2]
+
+    print(np.corrcoef(odd, even)[0, 1])
+    plt.scatter(odd, even, label='cllr_min', marker='s')
+    odd = cllrs_cal[::2]
+    even = cllrs_cal[1::2]
+
+    print(np.corrcoef(odd, even)[0, 1])
+    plt.scatter(odd, even, label='cllr_cal', marker='P')
+    plt.legend()
+    plt.show()
+
     authors = np.unique(train_df['author'])
     plt.scatter(authors,cllrs,label = 'cllr',marker='o')
     plt.scatter(authors,cllrs_min,label = 'cllr_min',marker='s')
@@ -237,10 +246,11 @@ def LR(args,config):
 
     with plotting.show() as ax:
         ax.tippett(validation_lr, validation_truth)
-        lr_1 = np.log10(additional_lr)
-        xplot1 = np.linspace(np.min(lr_1), np.max(lr_1), 100)
-        perc1 = (sum(i >= xplot1 for i in lr_1) / len(lr_1)) * 100
-        ax.plot(xplot1, perc1, color='g', label='LRs given $\mathregular{H_2}$ outside training set')
+        if add:
+            lr_1 = np.log10(additional_lr)
+            xplot1 = np.linspace(np.min(lr_1), np.max(lr_1), 100)
+            perc1 = (sum(i >= xplot1 for i in lr_1) / len(lr_1)) * 100
+            ax.plot(xplot1, perc1, color='g', label='LRs given $\mathregular{H_d}$ outside training set')
         ax.legend()
     plt.show()
 
