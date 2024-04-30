@@ -1,6 +1,6 @@
 {
   "variables": {
-    "nAuthors": 2,
+    "nAuthors": 10,
     "wordRange": [1,2],
     "charRange": [2,5],
     "charDistRange": [1,3],
@@ -18,14 +18,14 @@
   "BERT": {
     "epochs": 5,
     "dropout": 0.5,
-    "learningRate": 1e-5,
-    "type": "truncated"
+    "learningRate": 2e-5,
+    "type": "average"
   },
   "Pan2019": {
     "problem": 1,
     "nClasses": 9
   },
-  "baseline": 0,
+  "baseline": 1,
   "randomConversations": 0,
   "confusion": 0
 }

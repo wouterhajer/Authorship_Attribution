@@ -22,7 +22,6 @@ class BertSimpleClassifier(nn.Module):
         # Apply dropout on the dense layer and pass through dense layer
         pooled_output = self.dropout(output)
         logits = self.dense(pooled_output[0,0])
-        print(logits)
         return logits
 
     def inference(self, encodings):
@@ -56,7 +55,7 @@ def finetune_bert_simple(model, train_dataloader, epochs, config):
     optimizer = torch.optim.AdamW(model.parameters(), lr=config['BERT']['learningRate'])
     criterion = torch.nn.CrossEntropyLoss()
     # Currently using Number of authors as batch size
-    N_classes = 2
+    N_classes = config['variables']['nAuthors']
     #epochs = config['BERT']['epochs']
     for epoch in range(epochs):
         model.train()
@@ -68,7 +67,6 @@ def finetune_bert_simple(model, train_dataloader, epochs, config):
                         'token_type_ids': encoding['token_type_ids'][0],
                         'attention_mask': encoding['attention_mask'][0]}
             outputs = model(encoding)
-            print(labels)
             loss = criterion(outputs, labels)
             total_loss += loss.item()
 
@@ -103,12 +101,11 @@ def validate_bert_simple(model, val_encodings, encoded_known_authors):
     model.eval()
     with torch.no_grad():
         for i,encoding in enumerate(val_encodings):
-
             # Tokenize and encode the validation data
             output = model.inference(encoding)
             val_predictions = torch.argmax(output, dim=0)
             preds.append(val_predictions.detach().cpu().numpy())
-    print(preds)
+
     f1 = f1_score(encoded_known_authors, preds, average='macro')
     print('F1 Score average:' + str(f1))
     return preds, f1

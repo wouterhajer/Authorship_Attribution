@@ -6,13 +6,14 @@ import json
 import torch
 from transformers import BertTokenizer, BertModel
 from torch.utils.data import DataLoader
-from BERT_meanpooling import BertMeanPoolingClassifier, finetune_bert_meanpooling, validate_bert_meanpooling, CustomDataset
+from BERT_meanpooling import BertMeanPoolingClassifier, CustomDataset, BertAverageClassifier, BertTruncatedClassifier
 from BERT_simple import finetune_bert_simple, validate_bert_simple, BertSimpleClassifier
 import argparse
 from df_loader import load_df
 from split import split
 from sklearn.model_selection import train_test_split
 import pandas as pd
+
 
 def BERT(args, config):
     # Assign device and check if it is GPU or not
@@ -57,10 +58,10 @@ def BERT(args, config):
     # Set tokenizer and tokenize training and test texts
     # tokenizer = RobertaTokenizer.from_pretrained('DTAI-KULeuven/robbert-2023-dutch-base')
     tokenizer = BertTokenizer.from_pretrained('GroNLP/bert-base-dutch-cased')  #
-    train_encodings, train_encodings_simple = transform_list_of_texts(train_df['text'], tokenizer, 510, 256, 256, \
-                                        device=device)
-    val_encodings, val_encodings_simple = transform_list_of_texts(test_df['text'], tokenizer, 510, 256, 256, \
-                                            device=device)
+    train_encodings, train_encodings_simple = transform_list_of_texts(train_df['text'], tokenizer, 510,
+                                                                      256, 256, device=device)
+    val_encodings, val_encodings_simple = transform_list_of_texts(test_df['text'], tokenizer, 510,
+                                                                  256, 256, device=device)
 
     encoded_known_authors = label_encoder.transform(test_df['author'])
     train_labels = torch.tensor(train_df['author_id'], dtype=torch.long).to(device)
@@ -69,8 +70,15 @@ def BERT(args, config):
     # Define the model for fine-tuning
     #bert_model = RobertaModel.from_pretrained('BERTmodels/robbert-2023-dutch-base')
     bert_model = BertModel.from_pretrained('BERTmodels/bert-base-dutch-cased')
-    #model = BertMeanPoolingClassifier(bert_model, N_classes=N_classes, dropout=config['BERT']['dropout'])
-    model = BertSimpleClassifier(bert_model, N_classes=N_classes, dropout=config['BERT']['dropout'])
+
+    if config['BERT']['type'] == 'meanpooling':
+        model = BertMeanPoolingClassifier(bert_model, device, N_classes=N_classes, dropout=config['BERT']['dropout'])
+    elif config['BERT']['type'] == 'truncated':
+        model = BertTruncatedClassifier(bert_model, device, N_classes=N_classes, dropout=config['BERT']['dropout'])
+    elif config['BERT']['type'] == 'average':
+        model = BertAverageClassifier(bert_model, device, N_classes=N_classes, dropout=config['BERT']['dropout'])
+    else:
+        print("No BERT model specified")
     model.to(device)
 
     # Set up DataLoader for training
@@ -82,10 +90,9 @@ def BERT(args, config):
     train_dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     # Fine-tuning and validation loop
-    epochs = 1
+    epochs = 5
     #preds, scores = validate_bert_simple(model, val_encodings, encoded_known_authors)
     for j in range(10):
-
         #model = finetune_bert_meanpooling(model, train_dataloader, epochs, config)
         model = finetune_bert_simple(model, train_dataloader, epochs, config)
 
@@ -95,9 +102,9 @@ def BERT(args, config):
         avg_preds = label_encoder.inverse_transform(preds)
         author_number = [author for author in test_df['author']]
         conf = confusion_matrix(test_df['author'], avg_preds, normalize='true')
-        #cmd = ConfusionMatrixDisplay(conf, display_labels=sorted(set(author_number)))
-        #cmd.plot()
-        #plt.show()
+        cmd = ConfusionMatrixDisplay(conf, display_labels=sorted(set(author_number)))
+        cmd.plot()
+        plt.show()
 
 
 def main():
@@ -110,6 +117,7 @@ def main():
     with open('config.json') as f:
         config = json.load(f)
     BERT(args, config)
+
 
 if __name__ == '__main__':
     main()
