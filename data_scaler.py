@@ -50,3 +50,12 @@ def data_scaler(train_df,test_df,config,model = 'char-std'):
         scaled_train_data = svd.fit_transform(scaled_train_data)
         scaled_test_data = svd.transform(scaled_test_data)
     return scaled_train_data, scaled_test_data
+
+def data_scaler_embedding(train, test):
+    # initialize truncated singular value decomposition
+    svd = TruncatedSVD(n_components=len(train), algorithm='randomized', random_state=43)
+
+    # Word
+    scaled_train_data = svd.fit_transform(train)
+    scaled_test_data = svd.transform(test)
+    return scaled_train_data, scaled_test_data

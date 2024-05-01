@@ -16,9 +16,10 @@ class BertMeanPoolingClassifier(nn.Module):
         self.dense = nn.Linear(in_features=768, out_features=N_classes)
 
     def forward(self, encodings):
+        print(encodings)
         # Obtain BERT hidden states
         inputs = self.bert_model(**encodings)['last_hidden_state']
-
+        print(inputs)
         # Mean pooling across the sequence dimension
         pooled_output = torch.mean(inputs, dim=0)
 
@@ -52,8 +53,9 @@ class BertAverageClassifier(nn.Module):
 
     def forward(self, encodings):
         # Obtain BERT hidden states
+        print(encodings)
         inputs = self.bert_model(**encodings)['last_hidden_state']
-
+        print(inputs)
         outputs = torch.zeros(inputs.shape[0], self.n_classes).to(self.device)
         # Apply dropout on the dense layer and pass through dense layer
         inputs = self.dropout(inputs)
@@ -96,6 +98,7 @@ class BertTruncatedClassifier(nn.Module):
         output = inputs
         # Apply dropout on the dense layer and pass through dense layer
         pooled_output = self.dropout(output)
+
         logits = self.dense(pooled_output[0,0])
         return logits
 

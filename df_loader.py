@@ -3,10 +3,14 @@ import os
 from vocabulary import extend_vocabulary
 from masking import mask
 
-
 def load_df(args,config):
     df_file = args.input_path + os.sep + args.corpus_name + ".csv"
     full_df = pd.read_csv(df_file)
+
+    # only keep authors with at least 8 recordings to get a uniform training set
+    v = full_df['author'].value_counts()
+    full_df = full_df[full_df['author'].isin(v[v >= 8].index)]
+    full_df = full_df.reset_index(drop=True)
 
     vocab_file = args.input_path + os.sep + 'vocab_' + args.corpus_name + ".txt"
     vocab_word = []

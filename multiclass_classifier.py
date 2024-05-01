@@ -1,8 +1,10 @@
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.svm import SVC
 from sklearn.multiclass import OneVsRestClassifier
-from data_scaler import data_scaler
-
+from data_scaler import data_scaler,data_scaler_embedding
+import json
+import numpy as np
+import ast
 
 def Multiclass_classifier(train_df, test_df, config, model):
     """
@@ -13,9 +15,12 @@ def Multiclass_classifier(train_df, test_df, config, model):
     @param model: Specify if char-std, word or char-dist model is to be used
     @return: list of predicted author and matrix of probabilities per text
     """
+
+    train = np.array([ast.literal_eval(embedding) for embedding in train_df['embedding']])
+    test = np.array([ast.literal_eval(embedding) for embedding in test_df['embedding']])
+    scaled_train_data, scaled_test_data = data_scaler_embedding(train, test)
     scaled_train_data, scaled_test_data = data_scaler(train_df, test_df, config, model=model)
-    char = CalibratedClassifierCV(OneVsRestClassifier(SVC(C=1, kernel='linear',
-                                                          gamma='auto')))
+    char = CalibratedClassifierCV(OneVsRestClassifier(SVC(C=1, kernel='linear',gamma='auto')))
     char.fit(scaled_train_data, train_df['author_id'])
     preds_char = char.predict(scaled_test_data)
     probas_char = char.predict_proba(scaled_test_data)
