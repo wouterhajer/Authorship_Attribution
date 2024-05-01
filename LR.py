@@ -269,7 +269,6 @@ def LR(args,config):
     plt.show()
 
 
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('input_path', help="Choose the path to the input")

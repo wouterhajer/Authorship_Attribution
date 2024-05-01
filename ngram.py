@@ -64,7 +64,7 @@ def test_ngram(args,config):
     author_ids = list(set(full_df['author_id']))
     df = full_df.loc[full_df['author_id'].isin(author_ids[:config['variables']['nAuthors']])]
 
-    conv = ([2,5,4,7,6],[8,3,1])
+    conv = ([2,5,4,3,6],[1])
     # Use random or deterministic split
     if bool(config['randomConversations']):
         train_df, test_df = train_test_split(df, test_size=0.25, stratify=df[['author']])

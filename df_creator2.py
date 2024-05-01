@@ -82,20 +82,42 @@ def create_df(args, config, p_test = 0.25):
             #author = (author+conv) % 8 + 1
             #print(author)
             texts.append((text3, author, conv))
+
+    elif args.corpus_name == "abc_nl1":
+        for i, v in enumerate(sorted(files)):
+            f = codecs.open(v, 'r', encoding=None)
+            print(v)
+            text = f.read()
+            print(text)
+            text = text.split('  ')
+            text2 = []
+            for j, line in enumerate(text):
+                print(line)
+                if line != '':
+                    text2.append(line)
+
+            text3 = ' '.join(text2[:])
+            author = int(v[15])
+            conv = int(v[18])
+            #author = (author+conv) % 8 + 1
+            #print(author)
+            texts.append((text3, author, conv))
+    print(texts)
     # Convert into dataframe
     df = pd.DataFrame(texts, columns=['text', 'author', 'conversation'])
-
+    print(df)
     background_vocab = extend_vocabulary([1, 1], df['text'], model='word')
     vocab_file = args.output_path+os.sep+'vocab_'+args.corpus_name+".txt"
 
     with open(vocab_file, 'w', encoding="utf-8") as fp:
         fp.write('\n'.join(background_vocab))
-
+    """
     # only keep authors with at least 8 recordings to get a uniform training set
     v = df['author'].value_counts()
     df = df[df['author'].isin(v[v >= 8].index)]
     df = df.reset_index(drop=True)
-
+    """
+    print(df)
     df.to_csv(args.output_path+os.sep+args.corpus_name+".csv", index=False)
     if bool(config['randomConversations']):
         train_df, test_df = train_test_split(df, test_size=p_test, stratify=df[['author']])
