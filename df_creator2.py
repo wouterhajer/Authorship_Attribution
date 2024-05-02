@@ -8,6 +8,7 @@ from sklearn.model_selection import train_test_split
 from vocabulary import extend_vocabulary
 import argparse
 from pathlib import Path
+import re
 
 def create_df(args, config, p_test = 0.25):
     """
@@ -97,6 +98,9 @@ def create_df(args, config, p_test = 0.25):
                     text2.append(line)
 
             text3 = ' '.join(text2[:])
+            text3 = re.sub(r'\n\n\n', ' ', text3)
+            text3 = re.sub(r'\n\n', '\n', text3)
+            text3 = re.sub(r'\n', ' ', text3)
             author = int(v[15])
             conv = int(v[18])
             #author = (author+conv) % 8 + 1

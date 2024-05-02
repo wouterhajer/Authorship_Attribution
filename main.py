@@ -71,17 +71,28 @@ def average_f1(args, config):
             avg_preds = preds_word
 
         # Calculate the scores
-        for j in range(len(test_df['author'])):
-            if test_authors[j] == avg_preds[j]:
-                score += 1
-            elif test_authors[j] == avg_preds[j] - 1 and test_authors[j] % 2 == 1:
-                print('hello1')
-                score_partner += 1
-            elif test_authors[j] == avg_preds[j] + 1 and test_authors[j] % 2 == 0:
-                print('hello2')
-                score_partner += 1
-            else:
-                score_rest += 1
+        if args.corpus_name == 'Frida':
+            for j in range(len(test_df['author'])):
+                if test_authors[j] == avg_preds[j]:
+                    score += 1
+                elif test_authors[j] == avg_preds[j] - 1 and test_authors[j] % 2 == 1:
+                    score_partner += 1
+                elif test_authors[j] == avg_preds[j] + 1 and test_authors[j] % 2 == 0:
+                    score_partner += 1
+                else:
+                    score_rest += 1
+        # Calculate the scores
+        elif args.corpus_name == 'abc_nl1':
+            print('hello')
+            for j in range(len(test_df['author'])):
+                if test_authors[j] == avg_preds[j]:
+                    score += 1
+                elif avg_preds[j] % 2 == 0 and test_authors[j] % 2 == 1:
+                    score_partner += 1
+                elif avg_preds[j] % 2 == 1 and test_authors[j] % 2 == 0:
+                    score_partner += 1
+                else:
+                    score_rest += 1
 
         n_prob = len(test_authors)
         n_auth = len(set(test_authors))

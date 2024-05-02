@@ -16,9 +16,9 @@ def Multiclass_classifier(train_df, test_df, config, model):
     @return: list of predicted author and matrix of probabilities per text
     """
 
-    train = np.array([ast.literal_eval(embedding) for embedding in train_df['embedding']])
-    test = np.array([ast.literal_eval(embedding) for embedding in test_df['embedding']])
-    scaled_train_data, scaled_test_data = data_scaler_embedding(train, test)
+    #train = np.array([np.fromstring(embedding[1:-1], dtype=float, sep=' ') for embedding in train_df['embedding']]) #np.array([ast.literal_eval(embedding) for embedding in train_df['embedding']])
+    #test = np.array([np.fromstring(embedding[1:-1], dtype=float, sep=' ') for embedding in test_df['embedding']])#np.array([ast.literal_eval(embedding) for embedding in test_df['embedding']])
+    #scaled_train_data, scaled_test_data = data_scaler_embedding(train, test)
     scaled_train_data, scaled_test_data = data_scaler(train_df, test_df, config, model=model)
     char = CalibratedClassifierCV(OneVsRestClassifier(SVC(C=1, kernel='linear',gamma='auto')))
     char.fit(scaled_train_data, train_df['author_id'])

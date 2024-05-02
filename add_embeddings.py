@@ -38,8 +38,12 @@ def add_embeddings(args,config):
     
     print(len(inputs))
     """
-    model = SentenceTransformer('BERTmodels/Style_Embedding')
-    embeddings = model.encode(list(full_df['text']))
+    model = SentenceTransformer('BERTmodels/Style-Embedding')
+    embeddings = []
+    for text in list(full_df['text']):
+        a = model.encode(text)
+        print(a)
+        embeddings.append(str(list(a)))
     print(embeddings)
     full_df['embedding'] = embeddings
     full_df['embedding_simple'] = embeddings
@@ -55,8 +59,8 @@ def main():
 
     # Download new bertmodel from huggingface and save locally
 
-    model = SentenceTransformer('AnnaWegmann/Style-Embedding')
-    model.save_pretrained('BERTmodels/Style-Embedding')
+    #model = SentenceTransformer('AnnaWegmann/Style-Embedding')
+    #model.save('BERTmodels/Style-Embedding')
 
     with open('config.json') as f:
         config = json.load(f)

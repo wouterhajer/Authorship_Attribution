@@ -71,7 +71,7 @@ def abc_nl1_convert(conv):
     n = 6
     print('hello')
     print(conv)
-    test_conv = [(conv[0]+1)%n]
+    test_conv = [(conv[0])%n+1]
 
     a = [1, 2, 3, 4, 5, 6] #[1, 2, 3, 4, 5, 6, 7, 8]
     train_conv = list(set(a) - set(test_conv))

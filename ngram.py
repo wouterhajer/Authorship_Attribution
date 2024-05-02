@@ -64,7 +64,7 @@ def test_ngram(args,config):
     author_ids = list(set(full_df['author_id']))
     df = full_df.loc[full_df['author_id'].isin(author_ids[:config['variables']['nAuthors']])]
 
-    conv = ([2,5,4,3,6,8],[1,7])
+    conv = ([2,5,4,3,6],[1])
     # Use random or deterministic split
     if bool(config['randomConversations']):
         train_df, test_df = train_test_split(df, test_size=0.25, stratify=df[['author']])
@@ -103,15 +103,27 @@ def test_ngram(args,config):
     score_rest = 0
 
     # Calculate the scores
-    for j in range(len(test_df['author'])):
-        if test_authors[j] == avg_preds[j]:
-            score += 1
-        elif test_authors[j] == avg_preds[j] - 1 and test_authors[j] % 2 == 1:
-            score_partner += 1
-        elif test_authors[j] == avg_preds[j] + 1 and test_authors[j] % 2 == 0:
-            score_partner += 1
-        else:
-            score_rest += 1
+    if config['variables']['model'] == 'Frida':
+        for j in range(len(test_df['author'])):
+            if test_authors[j] == avg_preds[j]:
+                score += 1
+            elif test_authors[j] == avg_preds[j] - 1 and test_authors[j] % 2 == 1:
+                score_partner += 1
+            elif test_authors[j] == avg_preds[j] + 1 and test_authors[j] % 2 == 0:
+                score_partner += 1
+            else:
+                score_rest += 1
+    # Calculate the scores
+    elif config['variables']['model'] == 'abc_nl1':
+        for j in range(len(test_df['author'])):
+            if test_authors[j] == avg_preds[j]:
+                score += 1
+            elif avg_preds[j] % 2 ==0 and test_authors[j] % 2 == 1:
+                score_partner += 1
+            elif avg_preds[j] % 2 == 1 and test_authors[j] % 2 == 0:
+                score_partner += 1
+            else:
+                score_rest += 1
 
     print('Score = ' + str(score / len(avg_preds)) + ', random chance = ' + str(1 / len(set(test_authors))))
     print('Score partner = ' + str(score_partner / len(avg_preds)) + ', random chance = ' + str(
