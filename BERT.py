@@ -20,16 +20,10 @@ def BERT(args, config):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(device)
 
-    # Download new bertmodel from huggingface and save locally
-    """
-    model = BertModel.from_pretrained('GroNLP/bert-base-dutch-cased')
-    model.save_pretrained('BERTmodels/bert-base-dutch-cased')
-    """
     # Load dataframe
     full_df, config = load_df(args, config)
 
     n_authors = config['variables']['nAuthors']
-    print(full_df)
 
     # Encode author labels
     label_encoder = LabelEncoder()
@@ -43,17 +37,13 @@ def BERT(args, config):
     if bool(config['randomConversations']):
         train_df, test_df = train_test_split(reduced_df, test_size=0.25, stratify=reduced_df[['author']])
     else:
-        print('hello')
-        train_df, test_df = split(reduced_df, 0.25, confusion=bool(config['confusion']))
-    print(train_df)
-    print(test_df)
+        train_df, test_df = split(args,reduced_df, 0.125, confusion=bool(config['confusion']))
+
     # Encode author labels
     label_encoder = LabelEncoder()
     train_df['author_id'] = label_encoder.fit_transform(train_df['author'])
     # Limit the authors to nAuthors
     authors = list(set(full_df.author))
-    train_df = train_df.loc[train_df['author'].isin(authors[:n_authors])]
-    test_df = test_df.loc[test_df['author'].isin(authors[:n_authors])]
 
     # Set tokenizer and tokenize training and test texts
     # tokenizer = RobertaTokenizer.from_pretrained('DTAI-KULeuven/robbert-2023-dutch-base')
@@ -92,7 +82,7 @@ def BERT(args, config):
     # Fine-tuning and validation loop
     epochs = 5
     #preds, scores = validate_bert_simple(model, val_encodings, encoded_known_authors)
-    for j in range(10):
+    for j in range(5):
         #model = finetune_bert_meanpooling(model, train_dataloader, epochs, config)
         model = finetune_bert_simple(model, train_dataloader, epochs, config)
 
@@ -100,6 +90,7 @@ def BERT(args, config):
         #preds, scores = validate_bert_meanpooling(model, val_encodings, encoded_known_authors)
         preds, scores = validate_bert_simple(model, val_encodings, encoded_known_authors)
         avg_preds = label_encoder.inverse_transform(preds)
+
         author_number = [author for author in test_df['author']]
         conf = confusion_matrix(test_df['author'], avg_preds, normalize='true')
         cmd = ConfusionMatrixDisplay(conf, display_labels=sorted(set(author_number)))
@@ -116,6 +107,12 @@ def main():
 
     with open('config.json') as f:
         config = json.load(f)
+
+    # Download new bertmodel from huggingface and save locally
+    """
+    model = BertModel.from_pretrained('GroNLP/bert-base-dutch-cased')
+    model.save_pretrained('BERTmodels/bert-base-dutch-cased')
+    """
     BERT(args, config)
 
 

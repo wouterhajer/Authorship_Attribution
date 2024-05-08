@@ -21,13 +21,13 @@ def load_df(args,config):
             vocab_word.append(x)
     print(vocab_word[900:1000])
 
-    with open('frequenties.csv', newline='', encoding='MacRoman') as f:
-        reader = csv.reader(f)
-        print(reader)
-        vocab_word = list(reader)
-        vocab_word = [word[0] for word in vocab_word]
-        print(vocab_word[900:1000])
-        #print(vocab_word)
+    if args.corpus_name == 'abc_nl1':
+        with open('Frequenties.csv', newline='', encoding='MacRoman') as f:
+            reader = csv.reader(f)
+            vocab_word = list(reader)
+            vocab_word = [word[0] for word in vocab_word]
+            print(vocab_word[900:1000])
+            #print(vocab_word)
 
     # If baseline is true a top 100 word-1-gram model is used
     if bool(config['baseline']):
@@ -49,6 +49,7 @@ def load_df(args,config):
         vocab_masking = [x.lower() for x in vocab_masking]
         full_df = mask(full_df, vocab_masking, config)
 
-
+    if args.corpus_name == 'Frida':
+        full_df = full_df[full_df['author'].isin(v[v >= 8].index)]
 
     return full_df, config

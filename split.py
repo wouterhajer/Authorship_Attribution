@@ -1,7 +1,7 @@
 import random
 import pandas as pd
 
-def split(df2, p, conversations=None, confusion=False):
+def split(args,df2, p, conversations=None, confusion=False):
     """
     Function to split dataframe into train and test based on conversations number in Frida
     :param df: Original dataframe
@@ -20,7 +20,7 @@ def split(df2, p, conversations=None, confusion=False):
         a = conversations
         train_conv = a[0]
         test_conv = a[1]
-    print(train_conv,test_conv)
+
     # Split the dataframe
     train_df = df[df['conversation'].isin(train_conv)]
     test_df = df[df['conversation'].isin(test_conv)]
@@ -32,7 +32,10 @@ def split(df2, p, conversations=None, confusion=False):
         even_df = df.loc[df['author'] % 2 == 0]
         train_df_odd = odd_df[odd_df['conversation'].isin(train_conv)]
         test_df_odd = odd_df[odd_df['conversation'].isin(test_conv)]
-        train_conv, test_conv = abc_nl1_convert(test_conv) #frida_convert(test_conv)
+        if args.corpus_name == 'Frida':
+            train_conv, test_conv = frida_convert(test_conv)
+        else:
+            train_conv, test_conv = abc_nl1_convert(test_conv)
         train_df_even = even_df[even_df['conversation'].isin(train_conv)]
         test_df_even = even_df[even_df['conversation'].isin(test_conv)]
         train_df = pd.concat([train_df_odd, train_df_even])
@@ -69,11 +72,8 @@ def abc_nl1_convert(conv):
     :return: training and test conversations for the even authors
     """
     n = 6
-    print('hello')
-    print(conv)
-    test_conv = [(conv[0])%n+1]
+    test_conv = [(conv[0]) % n+1]
 
     a = [1, 2, 3, 4, 5, 6] #[1, 2, 3, 4, 5, 6, 7, 8]
     train_conv = list(set(a) - set(test_conv))
     return train_conv, test_conv
-

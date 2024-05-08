@@ -84,7 +84,7 @@ def LR(args,config):
             train_df, test_df = train_test_split(df, test_size=0.125, stratify=df[['author']])
         else:
             # For now only works without confusion
-            train_df, test_df = split(df, 1/n_conv, comb, confusion=False)
+            train_df, test_df = split(args, df, 1/n_conv, comb, confusion=False)
 
         train_df = train_df.reset_index(drop=True)
         test_df = test_df.reset_index(drop=True)

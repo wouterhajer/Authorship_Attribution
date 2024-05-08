@@ -43,6 +43,11 @@ def ngram(train_df, test_df, config):
         ind_best = np.argmax(text_probs)
         avg_preds.append(candidates[ind_best])
 
+    if config['variables']['model'] == 'char':
+        avg_preds = preds_char
+    elif config['variables']['model'] == 'word':
+        avg_preds = preds_word
+
     return avg_preds, preds_char, preds_word, test_authors  # , avg_probs
 
 
@@ -70,7 +75,7 @@ def test_ngram(args,config):
         train_df, test_df = train_test_split(df, test_size=0.25, stratify=df[['author']])
     else:
         # For now only works without confusion
-        train_df, test_df = split(df, 0.25, conversations=conv, confusion=bool(config['confusion']))
+        train_df, test_df = split(args, df, 0.25, conversations=conv, confusion=bool(config['confusion']))
 
     avg_preds, preds_char, preds_word, test_authors = ngram(train_df, test_df, config)
 

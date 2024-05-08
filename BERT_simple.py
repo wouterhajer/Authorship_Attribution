@@ -56,7 +56,6 @@ def finetune_bert_simple(model, train_dataloader, epochs, config):
     criterion = torch.nn.CrossEntropyLoss()
     # Currently using Number of authors as batch size
     N_classes = config['variables']['nAuthors']
-    #epochs = config['BERT']['epochs']
     for epoch in range(epochs):
         model.train()
         total_loss = 0
@@ -86,7 +85,13 @@ def finetune_bert_simple(model, train_dataloader, epochs, config):
         torch.cuda.empty_cache()
         # then collect the garbage
         gc.collect()
-
+    del train_dataloader
+    del optimizer
+    del criterion
+    # Then clean the cache
+    torch.cuda.empty_cache()
+    # then collect the garbage
+    gc.collect()
     return model
 
 def validate_bert_simple(model, val_encodings, encoded_known_authors):

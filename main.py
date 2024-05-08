@@ -33,7 +33,7 @@ def average_f1(args, config):
     # Find all conversation numbers and make all combinations of 6 in train set, 2 in test set
     a = df['conversation'].unique()
     combinations = []
-    for comb in itertools.combinations(a, len(a)-2):
+    for comb in itertools.combinations(a, len(a)-1):
         rest = list(set(a) - set(comb))
         combinations.append([list(comb), list(rest)])
 
@@ -51,7 +51,7 @@ def average_f1(args, config):
         if bool(config['randomConversations']):
             train_df, test_df = train_test_split(df, test_size=0.25, stratify=df[['author']])
         else:
-            train_df, test_df = split(df, 0.25, comb, confusion=bool(config['confusion']))
+            train_df, test_df = split(args,df, 0.25, comb, confusion=bool(config['confusion']))
         pd.set_option('display.max_columns', None)
         #print(train_df)
         #print(test_df)
@@ -109,6 +109,14 @@ def average_f1(args, config):
     print('Included authors: ' + str(len(set(test_authors))))
     # Print duration
     print('Total time: ' + str(time.time() - start) + ' seconds')
+    output_file = args.output_path + os.sep + 'main_' + args.corpus_name + ".csv"
+    with open(output_file, 'a', newline='') as file:
+        writer = csv.writer(file)
+
+        writer.writerow([round(f1_total/(i+1),3), round(score / n_prob / (i + 1),3),\
+                         round(score_partner / n_prob / (i + 1),3), round(score_rest / n_prob / (i + 1),3),\
+                         config['confusion'],config['variables']['nAuthors'], config['baseline'],\
+                         config['masking']['masking'], config['masking']['nMasking'], config['variables']['model']])
 
 def main():
     parser = argparse.ArgumentParser()

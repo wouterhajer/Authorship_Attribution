@@ -30,11 +30,12 @@ def create_df(args, config, p_test = 0.25):
         even = [3, 4, 1, 2, 7, 8, 5, 6]
 
         for i, v in enumerate(sorted(files)):
-            if v[-5] == '1' and 310 > int(v[6:9]) > 0 and v[9] != 'a':
+            new_author = int(v[len(args.corpus_path)+3:len(args.corpus_path)+6])
+            if v[-5] == '1' and 310 > new_author > 0 and v[len(args.corpus_path)+6] != 'a':
 
                 # Check if author corresponds to current author and count the conversation
-                if author != int(v[6:9]):
-                    author = int(v[6:9])
+                if author != new_author:
+                    author = new_author
                     j = 0
                 else:
                     j += 1
@@ -45,7 +46,7 @@ def create_df(args, config, p_test = 0.25):
                 else:
                     conversation = even[j]
                 f = codecs.open(v, 'r', encoding='utf-8')
-                label = int(v[6:9])
+                label = new_author
                 text = f.read()
                 text = text.split('\r\n')
                 text2 = []
@@ -89,24 +90,22 @@ def create_df(args, config, p_test = 0.25):
             f = codecs.open(v, 'r', encoding=None)
             print(v)
             text = f.read()
-            print(text)
             text = text.split('  ')
             text2 = []
             for j, line in enumerate(text):
-                print(line)
                 if line != '':
                     text2.append(line)
 
             text3 = ' '.join(text2[:])
             text3 = re.sub(r'\n\n\n', ' ', text3)
-            text3 = re.sub(r'\n\n', '\n', text3)
+            text3 = re.sub(r'\n\n', ' ', text3)
             text3 = re.sub(r'\n', ' ', text3)
             author = int(v[15])
             conv = int(v[18])
             #author = (author+conv) % 8 + 1
             #print(author)
             texts.append((text3, author, conv))
-    print(texts)
+
     # Convert into dataframe
     df = pd.DataFrame(texts, columns=['text', 'author', 'conversation'])
     print(df)
@@ -126,7 +125,6 @@ def create_df(args, config, p_test = 0.25):
     if bool(config['randomConversations']):
         train_df, test_df = train_test_split(df, test_size=p_test, stratify=df[['author']])
     else:
-        print('hello')
         train_df, test_df = split(df, p_test, confusion=bool(config['confusion']))
 
     return df, train_df, test_df, background_vocab
