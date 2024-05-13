@@ -18,8 +18,8 @@ import matplotlib.patches as mpatches
 import time
 import itertools
 from multiclass_classifier import binary_classifier
-from BERT_meanpooling import (BertMeanPoolingClassifier, validate_bert_meanpooling, finetune_bert_meanpooling,
-                              CustomDataset)
+from BERT_helper import (BertMeanPoolingClassifier, validate_bert, finetune_bert,
+                         CustomDataset)
 import torch
 from transformers import BertTokenizer, BertModel, AdamW
 from torch.utils.data import DataLoader, TensorDataset, Dataset
@@ -52,8 +52,8 @@ def bert_model_scores(train, validate, train_labels, config):
     train_dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     # Fine-tuning and validation loop
     epochs = config['BERT']['epochs']
-    model = finetune_bert_meanpooling(model, train_dataloader, epochs, config)
-    preds, scores = validate_bert_meanpooling(model, validate)
+    model = finetune_bert(model, train_dataloader, epochs, config)
+    preds, f1, scores = validate_bert(model, validate)
     return scores
 
 
@@ -210,8 +210,6 @@ for i, comb in enumerate(combinations):
         ax.tippett(validation_lr[i * n_authors ** 2:(i + 1) * n_authors ** 2],
                    validation_truth[i * n_authors ** 2:(i + 1) * n_authors ** 2])
     plt.show()
-    """
-            """
 
 print(f"Nauthors: {n_authors}")
 

@@ -6,8 +6,8 @@ import json
 import torch
 from transformers import BertTokenizer, BertModel, RobertaTokenizer, RobertaModel
 from torch.utils.data import DataLoader
-from BERT_meanpooling import BertMeanPoolingClassifier, CustomDataset, BertAverageClassifier, BertTruncatedClassifier
-from BERT_simple import finetune_bert_simple, validate_bert_simple, BertSimpleClassifier
+from BERT_helper import (BertMeanPoolingClassifier, CustomDataset, BertAverageClassifier, BertTruncatedClassifier,
+                         finetune_bert, validate_bert)
 import argparse
 from df_loader import load_df
 from split import split
@@ -99,7 +99,6 @@ def BERT_crossvall(args, config):
         average_score = np.zeros(l)
         average_score_partner = np.zeros(l)
         average_score_rest = np.zeros(l)
-        f1_total = 0
 
         # For every combination of conversations in train/test set, calculate the scores for true author,
         # conversation partner and other speakers
@@ -150,10 +149,11 @@ def BERT_crossvall(args, config):
             # Fine-tuning and validation loop
             epochs = 5
             for j in range(10):
-                model = finetune_bert_simple(model, train_dataloader, epochs, config)
+                model = finetune_bert(model, train_dataloader, epochs, config)
 
                 print('validation set')
-                preds, scores = validate_bert_simple(model, val_encodings, encoded_known_authors)
+                preds, f1, scores = validate_bert(model, val_encodings, encoded_known_authors)
+
                 avg_preds = label_encoder.inverse_transform(preds)
                 test_authors = list(test_df['author'])
                 a, b, c = partner(test_authors, avg_preds, args)

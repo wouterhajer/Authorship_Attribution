@@ -124,32 +124,25 @@ class CustomDataset(Dataset):
         sample = {'encodings': self.encodings[idx], 'labels': self.labels[idx]}
         return sample
 
+
 def finetune_bert(model, train_dataloader, epochs, config):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # Set up optimizer and loss function
     optimizer = torch.optim.AdamW(model.parameters(), lr=config['BERT']['learningRate'])
-    n_authors = config['variables']['nAuthors']
     # For binary classification we can use weight = torch.tensor([n_authors-1.0,1.0])
     criterion = torch.nn.CrossEntropyLoss()
     # Currently using Number of authors as batch size
-    N_classes = config['Pan2019']['nClasses']
-    N_classes = 8
-    #epochs = config['BERT']['epochs']
+    N_classes = config['variables']['nAuthors']
     for epoch in range(epochs):
         model.train()
         total_loss = 0
         i = 0
         for batch in train_dataloader:
             encoding, labels = batch['encodings'], batch['labels'][0]
-
             encoding = {'input_ids': encoding['input_ids'][0],
                         'token_type_ids': encoding['token_type_ids'][0],
-                        'attention_mask': encoding['attention_mask'][0]
-                        }
-            print(encoding)
+                        'attention_mask': encoding['attention_mask'][0]}
             outputs = model(encoding)
             loss = criterion(outputs, labels)
-
             total_loss += loss.item()
 
             loss.backward()
@@ -168,12 +161,17 @@ def finetune_bert(model, train_dataloader, epochs, config):
         torch.cuda.empty_cache()
         # then collect the garbage
         gc.collect()
-
+    del train_dataloader
+    del optimizer
+    del criterion
+    # Then clean the cache
+    torch.cuda.empty_cache()
+    # then collect the garbage
+    gc.collect()
     return model
 
 
-
-def validate_bert(model, val_encodings, encoded_known_authors = np.zeros(9)):
+def validate_bert(model, val_encodings, encoded_known_authors, LR = False):
     """
     :param model: The finetuned BertMeanPoolingClassifier to be evaluated
     :param val_encodings: Encodings of validation texts, split in overlapping chunks of 512 tokens
@@ -183,16 +181,18 @@ def validate_bert(model, val_encodings, encoded_known_authors = np.zeros(9)):
     """
     preds = []
     scores = np.zeros(len(val_encodings))
+    f1 = 0
     model.eval()
     with torch.no_grad():
-        for i,label in enumerate(val_encodings):
+        for i,encoding in enumerate(val_encodings):
             # Tokenize and encode the validation data
-            output = model.inference(val_encodings[i])
-            scores[i] = (torch.exp(output[0])/(torch.exp(output[0])+torch.exp(output[1]))).detach().cpu().numpy()
+            output = model.inference(encoding)
             val_predictions = torch.argmax(output, dim=0)
             preds.append(val_predictions.detach().cpu().numpy())
-
-    if encoded_known_authors.any() != 0:
+            if LR:
+                scores[i] = (
+                            torch.exp(output[0]) / (torch.exp(output[0]) + torch.exp(output[1]))).detach().cpu().numpy()
+    if not LR:
         f1 = f1_score(encoded_known_authors, preds, average='macro')
         print('F1 Score average:' + str(f1))
-    return preds, scores
+    return preds, f1, scores

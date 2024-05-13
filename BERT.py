@@ -6,8 +6,8 @@ import json
 import torch
 from transformers import BertTokenizer, BertModel
 from torch.utils.data import DataLoader
-from BERT_meanpooling import BertMeanPoolingClassifier, CustomDataset, BertAverageClassifier, BertTruncatedClassifier
-from BERT_simple import finetune_bert_simple, validate_bert_simple, BertSimpleClassifier
+from BERT_helper import (BertMeanPoolingClassifier, CustomDataset, BertAverageClassifier, BertTruncatedClassifier,
+                         finetune_bert, validate_bert)
 import argparse
 from df_loader import load_df
 from split import split
@@ -82,14 +82,11 @@ def BERT(args, config):
 
     # Fine-tuning and validation loop
     epochs = 5
-    #preds, scores = validate_bert_simple(model, val_encodings, encoded_known_authors)
     for j in range(5):
-        #model = finetune_bert_meanpooling(model, train_dataloader, epochs, config)
-        model = finetune_bert_simple(model, train_dataloader, epochs, config)
+        model = finetune_bert(model, train_dataloader, epochs, config)
 
         print('validation set')
-        #preds, scores = validate_bert_meanpooling(model, val_encodings, encoded_known_authors)
-        preds, scores = validate_bert_simple(model, val_encodings, encoded_known_authors)
+        preds, f1, scores = validate_bert(model, val_encodings, encoded_known_authors)
         avg_preds = label_encoder.inverse_transform(preds)
 
         author_number = [author for author in test_df['author']]
