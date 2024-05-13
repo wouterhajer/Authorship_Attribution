@@ -54,7 +54,8 @@ def BERT(args, config):
                                                                   256, 256, device=device)
 
     encoded_known_authors = label_encoder.transform(test_df['author'])
-    train_labels = torch.tensor(train_df['author_id'], dtype=torch.long).to(device)
+    train_labels = list(train_df['author_id'])
+    train_labels = torch.tensor(train_labels, dtype=torch.long).to(device)
     N_classes = len(list(set(encoded_known_authors)))
 
     # Define the model for fine-tuning

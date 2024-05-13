@@ -92,8 +92,9 @@ def BERT_crossvall(args, config):
         combs = combinations(df['conversation'].unique(), 1)
 
         # Set tokenizer and tokenize training and test texts
-        tokenizer = RobertaTokenizer.from_pretrained('DTAI-KULeuven/robbert-2023-dutch-base')
-        #tokenizer = BertTokenizer.from_pretrained('GroNLP/bert-base-dutch-cased')
+
+        #tokenizer = RobertaTokenizer.from_pretrained('DTAI-KULeuven/robbert-2023-dutch-base')
+        tokenizer = BertTokenizer.from_pretrained('GroNLP/bert-base-dutch-cased')
 
         average_score = np.zeros(l)
         average_score_partner = np.zeros(l)
@@ -123,8 +124,8 @@ def BERT_crossvall(args, config):
             N_classes = len(list(set(encoded_known_authors)))
 
             # Define the model for fine-tuning
-            bert_model = RobertaModel.from_pretrained('BERTmodels/robbert-2023-dutch-base')
-            #bert_model = BertModel.from_pretrained('BERTmodels/bert-base-dutch-cased')
+            #bert_model = RobertaModel.from_pretrained('BERTmodels/robbert-2023-dutch-base')
+            bert_model = BertModel.from_pretrained('BERTmodels/bert-base-dutch-cased')
 
             if config['BERT']['type'] == 'meanpooling':
                 model = BertMeanPoolingClassifier(bert_model, device, N_classes=N_classes,
@@ -159,11 +160,13 @@ def BERT_crossvall(args, config):
                 average_score[j] += a
                 average_score_partner[j] += b
                 average_score_rest[j] += c
+                """
                 author_number = [author for author in test_df['author']]
                 conf = confusion_matrix(test_df['author'], avg_preds, normalize='true')
                 cmd = ConfusionMatrixDisplay(conf, display_labels=sorted(set(author_number)))
                 cmd.plot()
                 plt.show()
+                """
             print(average_score / (i + 1) / n_authors)
             print(average_score_partner / (i + 1) / n_authors)
             print(average_score_rest / (i + 1) / n_authors)
