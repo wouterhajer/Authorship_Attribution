@@ -35,7 +35,7 @@ def split(args,df2, p, conversations=None, confusion=False):
         test_df_odd = odd_df[odd_df['conversation'].isin(test_conv)]
         len_conv = len(train_conv)+len(test_conv)
 
-        train_conv, test_conv = confusion(test_conv, len_conv)
+        train_conv, test_conv = convert_confusion(test_conv, len_conv)
 
         train_df_even = even_df[even_df['conversation'].isin(train_conv)]
         test_df_even = even_df[even_df['conversation'].isin(test_conv)]
@@ -43,25 +43,25 @@ def split(args,df2, p, conversations=None, confusion=False):
         test_df = pd.concat([test_df_odd, test_df_even])
     return train_df, test_df
 
-def confusion(conv,len_conv):
+def convert_confusion(conv,len_conv):
     """
     Determines the conversation in the test set for even authors such that they are in the training set for the odd
     authors. Also assigns the corresponding training set for the even authors.
     :param conv: test conversations for the odd authors
     :return: training and test conversations for the even authors
     """
-    test_conv = np.zeros([len(conv)])
+    test_conv = np.zeros(len(conv))
     for i in range(len(conv)):
         # create list  of conversations already in test set or in previous test set
         conv_copy = np.concatenate((conv.copy(), test_conv))
         # find the next conversation not in use and add to new test conversations
         j = 0
-        while j < 10:
+        while j < 100:
             if (conv[i]+j) % len_conv + 1 not in conv_copy:
                 test_conv[i] = (conv[i]+j) % len_conv + 1
                 break
             j += 1
-        if j == 10:
+        if j == 100:
             print('No new conversation found')
             test_conv = test_conv[:i]
             continue

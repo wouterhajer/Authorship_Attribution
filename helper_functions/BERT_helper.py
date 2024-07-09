@@ -11,7 +11,7 @@ class BertMeanPoolingClassifier(nn.Module):
     """
     def __init__(self, bert_model, device, N_classes, dropout=0.5):
         super(BertMeanPoolingClassifier, self).__init__()
-        self.bert_model = bert_model #BertModel.from_pretrained('BERTmodels/bert-base-cased')
+        self.bert_model = bert_model
         self.dropout = nn.Dropout(dropout)
         self.dense = nn.Linear(in_features=768, out_features=N_classes)
 
@@ -59,8 +59,7 @@ class BertAverageClassifier(nn.Module):
             outputs[i] = self.dense(inputs[i][0])
 
         # Mean pooling across the sequence dimension
-        #pooled_scores = torch.mean(outputs, dim=0)
-        pooled_scores = torch.max(outputs, dim=0)[0]
+        pooled_scores = torch.mean(outputs, dim=0)[0]
 
         return pooled_scores
 
@@ -74,7 +73,7 @@ class BertAverageClassifier(nn.Module):
             outputs[i] = self.dense(inputs[i][0])
 
         # Mean pooling across the sequence dimension
-        pooled_scores = torch.max(outputs, dim=0)[0]
+        pooled_scores = torch.mean(outputs, dim=0)[0]
         return pooled_scores
 
 
@@ -125,13 +124,21 @@ class CustomDataset(Dataset):
         return sample
 
 
-def finetune_bert(model, train_dataloader, epochs, config):
-    # Set up optimizer and loss function
-    optimizer = torch.optim.AdamW(model.parameters(), lr=config['BERT']['learningRate'])
-    # For binary classification we can use weight = torch.tensor([n_authors-1.0,1.0])
-    criterion = torch.nn.CrossEntropyLoss()
+def finetune_bert(model, train_dataloader, epochs, config, LR = False):
+    # Assign device and check if it is GPU or not
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
     # Currently using Number of authors as batch size
     N_classes = config['variables']['nAuthors']
+
+    # Set up optimizer and loss function
+    if LR:
+        criterion = torch.nn.CrossEntropyLoss(weight = torch.tensor([N_classes-1.0,1.0]).to(device))
+    else:
+        criterion = torch.nn.CrossEntropyLoss()
+
+    optimizer = torch.optim.AdamW(model.parameters(), lr=(config['BERT']['learningRate']))
+
     for epoch in range(epochs):
         model.train()
         total_loss = 0
@@ -157,10 +164,12 @@ def finetune_bert(model, train_dataloader, epochs, config):
         del encoding
         del outputs
         del loss
+        del labels
         # Then clean the cache
         torch.cuda.empty_cache()
         # then collect the garbage
         gc.collect()
+    # delete locals
     del train_dataloader
     del optimizer
     del criterion
@@ -177,6 +186,7 @@ def validate_bert(model, val_encodings, encoded_known_authors, LR = False):
     :param val_encodings: Encodings of validation texts, split in overlapping chunks of 512 tokens
     :param encoded_known_authors: The real encoded authors of each validation text.
     :return: predictions for each text in the validation set
+
     Validation loop for meanpooling BERT calculating a F1-score and returning predictions for each text.
     """
     preds = []
@@ -190,8 +200,9 @@ def validate_bert(model, val_encodings, encoded_known_authors, LR = False):
             val_predictions = torch.argmax(output, dim=0)
             preds.append(val_predictions.detach().cpu().numpy())
             if LR:
-                scores[i] = (
+                score = (
                             torch.exp(output[0]) / (torch.exp(output[0]) + torch.exp(output[1]))).detach().cpu().numpy()
+                scores[i] = np.log(score / (1 - score))
     if not LR:
         f1 = f1_score(encoded_known_authors, preds, average='macro')
         print('F1 Score average:' + str(f1))

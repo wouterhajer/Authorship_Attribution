@@ -1,10 +1,9 @@
 import torch
 from torch import Tensor
-from typing import Any, Optional, Union
+from typing import Optional
 from transformers import BatchEncoding, PreTrainedTokenizerBase
-# Functions from https://github.com/mim-solutions/bert_for_longer_texts/blob/main/belt_nlp/bert.py
-# Ensure ability to transform texts longer than 512 tokens using BERT
-# Returns list
+
+# Functions from https://github.com/mim-solutions/bert_for_longer_texts/blob/main/belt_nlp/splitting.py
 
 def transform_list_of_texts(
         texts: list[str],
@@ -26,6 +25,7 @@ def transform_list_of_texts(
     encodings = restructure_texts(BatchEncoding(tokens), device)
     tokens_simple = {"input_ids": input_ids_simple, "attention_mask": attention_mask_simple}
     encodings_simple = restructure_texts(BatchEncoding(tokens_simple), device)
+
     return encodings, encodings_simple
 
 
@@ -39,8 +39,9 @@ def restructure_texts(embeddings, device):
                  'token_type_ids': torch.tensor(zeros).to(device)})
         else:
             j = len(embeddings['input_ids'][i])
-            encodings.append({'input_ids': embeddings['input_ids'][i], 'attention_mask': embeddings['attention_mask'][i],
-                              'token_type_ids': torch.tensor([zeros] * j).to(device)})
+            encodings.append(
+                {'input_ids': embeddings['input_ids'][i], 'attention_mask': embeddings['attention_mask'][i],
+                 'token_type_ids': torch.tensor([zeros] * j).to(device)})
     return encodings
 
 
@@ -58,13 +59,11 @@ def transform_single_text(
         tokens = tokenize_text_with_truncation(text, tokenizer, maximal_text_length)
     else:
         tokens = tokenize_whole_text(text, tokenizer)
-
     input_id_chunks, mask_chunks = split_tokens_into_smaller_chunks(tokens, chunk_size, stride, minimal_chunk_length)
     add_special_tokens_at_beginning_and_end(input_id_chunks, mask_chunks)
     add_padding_tokens(input_id_chunks, mask_chunks)
     input_ids_simple = input_id_chunks[0].to(torch.int64).unsqueeze(0)
     attention_mask_simple = mask_chunks[0].to(torch.int64).unsqueeze(0)
-
     input_ids, attention_mask = stack_tokens_from_all_chunks(input_id_chunks, mask_chunks)
     return input_ids, attention_mask, input_ids_simple, attention_mask_simple
 

@@ -26,10 +26,10 @@ def mask(df, vocab_word, config):
 
                 if string.lower() not in vocab_word:
                     if single_masking:
-                        text = text[:i] + 'q' + text[j:]
+                        text = text[:i] + '#' + text[j:]
                         i += 1
                     else:
-                        text = text[:i] + 'q' * len(word) + text[j:]
+                        text = text[:i] + '#' * len(word) + text[j:]
                         i = j
                 else:
                     i = j
