@@ -1,7 +1,7 @@
 import lir
 import numpy as np
 import matplotlib.pyplot as plt
-from plotting import tippett
+from helper_functions.plotting import tippett
 
 # Code for building the toy example described in chapter 8.2 of the corresponding thesis
 validation_lr = np.array([100,5,0.1,1,0.01,10])

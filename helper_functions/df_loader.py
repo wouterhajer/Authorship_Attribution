@@ -1,6 +1,6 @@
 import pandas as pd
 import os
-from masking import mask
+from helper_functions.masking import mask
 import csv
 from df_loader_RFM import load_df_RFM
 
@@ -39,9 +39,9 @@ def load_df(args, config):
     if args.corpus_name == 'Frida':
         # only keep authors with at least 6 recordings to get a uniform training set
         v = full_df['author'].value_counts()
-        full_df = full_df[full_df['author'].isin(v[v >= 6].index)]
         full_df = full_df[full_df['text'].map(len) < 5000]
         v = full_df['author'].value_counts()
+        full_df = full_df[full_df['author'].isin(v[v >= 8].index)]
         full_df = full_df.reset_index(drop=True)
 
     # If masking is turned on replace all words outside top n_masking with hashtags
@@ -54,5 +54,4 @@ def load_df(args, config):
         full_df = mask(full_df, vocab_masking, config)
 
     config['variables']['nAuthors'] = min(config['variables']['nAuthors'], len(list(full_df['author'].unique())))
-
     return full_df, config

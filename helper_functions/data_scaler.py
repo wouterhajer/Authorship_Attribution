@@ -1,7 +1,7 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn import preprocessing
 from sklearn.decomposition import TruncatedSVD
-from vocabulary import extend_vocabulary
+from helper_functions.vocabulary import extend_vocabulary
 import numpy as np
 
 # Function modified from the code created by Lukas Muttenthaler, Gordon Lucas and Janek Amann

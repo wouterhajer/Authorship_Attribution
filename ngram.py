@@ -12,9 +12,6 @@ from sklearn.model_selection import train_test_split
 from helper_functions.df_loader import load_df
 from df_loader_RFM import load_df_RFM
 
-"""
-Modified from Boeninghoff et al  
-"""
 
 def ngram(train_df, test_df, config):
     """
@@ -25,37 +22,28 @@ def ngram(train_df, test_df, config):
     :return: returns lists containing the predicted authors using ensemble, char-ngrams and word-ngrams
     Additionally a list with true authors and a list of booleans corresponding with the confidence of the prediction
     """
-    # Shuffle the training data
-    #train_df = train_df.sample(frac=1)
 
-    # Compute predictions using word and character n-gram models (additionaly one focussing on punctuation can be added)
-    if config['variables']['model'] == 'char':
-        preds_char, probs_char = Multiclass_classifier(train_df, test_df, config, model='char-std')
-    elif config['variables']['model'] == 'word':
-        preds_word, probs_word = Multiclass_classifier(train_df, test_df, config, model='word')
-    elif config['variables']['model'] == 'both':
-        preds_char, probs_char = Multiclass_classifier(train_df, test_df, config, model='char-std')
-        preds_word, probs_word = Multiclass_classifier(train_df, test_df, config, model='word')
-        avg_probs = np.average([probs_word, probs_char], axis=0)
-
-    # preds_char_dist, probs_char_dist = Multiclass_classifier(train_df, test_df, config, model='char-dist')
-
-    # Soft Voting procedure (combines the votes of the individual classifier)
     candidates = list(set(train_df['author_id']))
     test_authors = list(test_df['author_id'])
 
     avg_preds = []
 
+    # Compute predictions using word and character n-gram models (additionaly one focussing on punctuation can be added)
     if config['variables']['model'] == 'char':
+        preds_char, probs_char = Multiclass_classifier(train_df, test_df, config, model='char-std')
         avg_preds = preds_char
     elif config['variables']['model'] == 'word':
+        preds_word, probs_word = Multiclass_classifier(train_df, test_df, config, model='word')
         avg_preds = preds_word
     elif config['variables']['model'] == 'both':
+        preds_char, probs_char = Multiclass_classifier(train_df, test_df, config, model='char-std')
+        preds_word, probs_word = Multiclass_classifier(train_df, test_df, config, model='word')
+        avg_probs = np.average([probs_word, probs_char], axis=0)
         for i, text_probs in enumerate(avg_probs):
             ind_best = np.argmax(text_probs)
             avg_preds.append(candidates[ind_best])
 
-    return avg_preds, test_authors  # , avg_probs
+    return avg_preds, test_authors
 
 
 def test_ngram(args,config):
@@ -70,8 +58,6 @@ def test_ngram(args,config):
     else:
         full_df, config = load_df(args,config)
 
-    print(full_df['author'])
-    print(type(list(full_df['author'])[0]))
     # Encode author labels
     label_encoder = LabelEncoder()
     full_df['author_id'] = label_encoder.fit_transform(full_df['author'])
@@ -81,12 +67,13 @@ def test_ngram(args,config):
     df = full_df.loc[full_df['author_id'].isin(author_ids[:config['variables']['nAuthors']])]
 
     #conv = ([2,5,4,3,6],[1])
+    print(df)
     # Use random or deterministic split
     if bool(config['randomConversations']):
         train_df, test_df = train_test_split(df, test_size=0.25, stratify=df[['author']])
     else:
         # For now only works without confusion
-        train_df, test_df = split(args, df, 0.5, confusion=bool(config['confusion']))
+        train_df, test_df = split(df, 0.25, confusion=bool(config['confusion']))
 
     avg_preds, test_authors = ngram(train_df, test_df, config)
 

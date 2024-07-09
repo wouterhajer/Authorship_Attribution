@@ -2,18 +2,19 @@ import random
 import pandas as pd
 import numpy as np
 
-def split(df2, p, conversations=None, confusion=False):
+def split(df, p, conversations=None, confusion=False):
     """
     Function to split dataframe into train and test based on conversations number in Frida
-    :param df2: Original dataframe
+    :param df: Original dataframe
     :param p: Percentage of conversations in test set
     :param conversations: Specific, non-random split (tuple)
     :return: train and test dataframe
     """
-    df = df2.copy()
+
     # If no specific conversations are given, decide randomly
     if conversations == None:
         a = df['conversation'].unique()
+        print(a)
         random.shuffle(a)
         train_conv = a[:int(len(a) * (1 - p))]
         test_conv = a[int(len(a) * (1 - p)):]

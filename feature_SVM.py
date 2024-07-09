@@ -54,7 +54,7 @@ def average_f1(args, config):
         if bool(config['randomConversations']):
             train_df, test_df = train_test_split(df, test_size=0.25, stratify=df[['author']])
         else:
-            train_df, test_df = split(args,df, 0.25, comb, confusion=bool(config['confusion']))
+            train_df, test_df = split(df, 0.25, comb, confusion=bool(config['confusion']))
         pd.set_option('display.max_columns', None)
 
         # Train SVMs, calculate predictions
@@ -69,7 +69,7 @@ def average_f1(args, config):
         print(list(test_df['author']))
 
         # Calculate the scores
-        if args.corpus_name == 'Frida' or 'RFM':
+        if args.corpus_name == 'Frida' or args.corpus_name == 'RFM':
             for j in range(len(test_df['author'])):
                 if test_authors[j] == avg_preds[j]:
                     score += 1

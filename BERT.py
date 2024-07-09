@@ -35,7 +35,7 @@ def BERT(args, config):
     if bool(config['randomConversations']):
         train_df, test_df = train_test_split(reduced_df, test_size=0.25, stratify=reduced_df[['author']])
     else:
-        train_df, test_df = split(args,reduced_df, 0.5,conversations=conv, confusion=bool(config['confusion']))
+        train_df, test_df = split(reduced_df, 0.5, conversations=conv, confusion=bool(config['confusion']))
 
     # Encode author labels
     label_encoder = LabelEncoder()
