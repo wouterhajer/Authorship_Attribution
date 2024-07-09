@@ -1,9 +1,8 @@
 import os
 import glob
 import codecs
-import json
-from split import *
-from vocabulary import extend_vocabulary
+from helper_functions.split import *
+from helper_functions.vocabulary import extend_vocabulary
 import argparse
 import re
 

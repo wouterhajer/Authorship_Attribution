@@ -1,16 +1,14 @@
-import matplotlib.pyplot as plt
 from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
-from text_transformer import transform_list_of_texts
+from helper_functions.text_transformer import transform_list_of_texts
 import json
 import torch
 from transformers import BertTokenizer, BertModel
 from torch.utils.data import DataLoader
-from BERT_helper import (BertMeanPoolingClassifier, CustomDataset, BertAverageClassifier, BertTruncatedClassifier,
-                         finetune_bert, validate_bert)
+from helper_functions.BERT_helper import (BertMeanPoolingClassifier, CustomDataset, BertAverageClassifier, BertTruncatedClassifier,
+                                          finetune_bert, validate_bert)
 import argparse
-from df_loader import load_df
-from split import split
+from helper_functions.df_loader import load_df
+from helper_functions.split import split
 from sklearn.model_selection import train_test_split
 import pandas as pd
 
@@ -33,11 +31,11 @@ def BERT(args, config):
     # Limit the authors to nAuthors
     authors = list(set(full_df.author_id))
     reduced_df = full_df.loc[full_df['author_id'].isin(authors[:n_authors])]
-
+    conv = ([2,5,4,3,6,7,8],[1])
     if bool(config['randomConversations']):
         train_df, test_df = train_test_split(reduced_df, test_size=0.25, stratify=reduced_df[['author']])
     else:
-        train_df, test_df = split(args,reduced_df, 0.125, confusion=bool(config['confusion']))
+        train_df, test_df = split(args,reduced_df, 0.5,conversations=conv, confusion=bool(config['confusion']))
 
     # Encode author labels
     label_encoder = LabelEncoder()
@@ -46,7 +44,7 @@ def BERT(args, config):
     authors = list(set(full_df.author))
 
     # Set tokenizer and tokenize training and test texts
-    # tokenizer = RobertaTokenizer.from_pretrained('DTAI-KULeuven/robbert-2023-dutch-base')
+    #tokenizer = RobertaTokenizer.from_pretrained('DTAI-KULeuven/robbert-2023-dutch-base')
     tokenizer = BertTokenizer.from_pretrained('GroNLP/bert-base-dutch-cased')  #
     train_encodings, train_encodings_simple = transform_list_of_texts(train_df['text'], tokenizer, 510,
                                                                       256, 256, device=device)
@@ -82,18 +80,19 @@ def BERT(args, config):
 
     # Fine-tuning and validation loop
     epochs = 5
-    for j in range(5):
+    for j in range(10):
         model = finetune_bert(model, train_dataloader, epochs, config)
 
         print('validation set')
         preds, f1, scores = validate_bert(model, val_encodings, encoded_known_authors)
         avg_preds = label_encoder.inverse_transform(preds)
-
-        author_number = [author for author in test_df['author']]
-        conf = confusion_matrix(test_df['author'], avg_preds, normalize='true')
-        cmd = ConfusionMatrixDisplay(conf, display_labels=sorted(set(author_number)))
-        cmd.plot()
-        plt.show()
+        print(str((j+1)*epochs) + ' epochs')
+        print(f1)
+        #author_number = [author for author in test_df['author']]
+        #conf = confusion_matrix(test_df['author'], avg_preds, normalize='true')
+        #cmd = ConfusionMatrixDisplay(conf, display_labels=sorted(set(author_number)))
+        #cmd.plot()
+        #plt.show()
 
 
 def main():

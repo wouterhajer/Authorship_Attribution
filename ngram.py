@@ -3,13 +3,14 @@ import numpy as np
 import json
 import random
 from sklearn.preprocessing import LabelEncoder
-from multiclass_classifier import Multiclass_classifier
+from helper_functions.multiclass_classifier import Multiclass_classifier
 import matplotlib.pyplot as plt
 from sklearn.metrics import f1_score, confusion_matrix, ConfusionMatrixDisplay
 import argparse
-from split import split
+from helper_functions.split import split
 from sklearn.model_selection import train_test_split
-from df_loader import load_df
+from helper_functions.df_loader import load_df
+from df_loader_RFM import load_df_RFM
 
 """
 Modified from Boeninghoff et al  
@@ -28,27 +29,33 @@ def ngram(train_df, test_df, config):
     #train_df = train_df.sample(frac=1)
 
     # Compute predictions using word and character n-gram models (additionaly one focussing on punctuation can be added)
-    preds_word, probs_word = Multiclass_classifier(train_df, test_df, config, model='word')
-    preds_char, probs_char = Multiclass_classifier(train_df, test_df, config, model='char-std')
+    if config['variables']['model'] == 'char':
+        preds_char, probs_char = Multiclass_classifier(train_df, test_df, config, model='char-std')
+    elif config['variables']['model'] == 'word':
+        preds_word, probs_word = Multiclass_classifier(train_df, test_df, config, model='word')
+    elif config['variables']['model'] == 'both':
+        preds_char, probs_char = Multiclass_classifier(train_df, test_df, config, model='char-std')
+        preds_word, probs_word = Multiclass_classifier(train_df, test_df, config, model='word')
+        avg_probs = np.average([probs_word, probs_char], axis=0)
+
     # preds_char_dist, probs_char_dist = Multiclass_classifier(train_df, test_df, config, model='char-dist')
 
     # Soft Voting procedure (combines the votes of the individual classifier)
     candidates = list(set(train_df['author_id']))
     test_authors = list(test_df['author_id'])
 
-    avg_probs = np.average([probs_word, probs_char], axis=0)
     avg_preds = []
-
-    for i, text_probs in enumerate(avg_probs):
-        ind_best = np.argmax(text_probs)
-        avg_preds.append(candidates[ind_best])
 
     if config['variables']['model'] == 'char':
         avg_preds = preds_char
     elif config['variables']['model'] == 'word':
         avg_preds = preds_word
+    elif config['variables']['model'] == 'both':
+        for i, text_probs in enumerate(avg_probs):
+            ind_best = np.argmax(text_probs)
+            avg_preds.append(candidates[ind_best])
 
-    return avg_preds, preds_char, preds_word, test_authors  # , avg_probs
+    return avg_preds, test_authors  # , avg_probs
 
 
 def test_ngram(args,config):
@@ -58,9 +65,13 @@ def test_ngram(args,config):
     random_seed = 20
     np.random.seed(random_seed)
     random.seed(random_seed)
+    if args.corpus_name == 'RFM':
+        full_df, config = load_df_RFM(args, config)
+    else:
+        full_df, config = load_df(args,config)
 
-    full_df,config = load_df(args,config)
-
+    print(full_df['author'])
+    print(type(list(full_df['author'])[0]))
     # Encode author labels
     label_encoder = LabelEncoder()
     full_df['author_id'] = label_encoder.fit_transform(full_df['author'])
@@ -69,19 +80,17 @@ def test_ngram(args,config):
     author_ids = list(set(full_df['author_id']))
     df = full_df.loc[full_df['author_id'].isin(author_ids[:config['variables']['nAuthors']])]
 
-    conv = ([2,5,4,3,6],[1])
+    #conv = ([2,5,4,3,6],[1])
     # Use random or deterministic split
     if bool(config['randomConversations']):
         train_df, test_df = train_test_split(df, test_size=0.25, stratify=df[['author']])
     else:
         # For now only works without confusion
-        train_df, test_df = split(args, df, 0.25, conversations=conv, confusion=bool(config['confusion']))
+        train_df, test_df = split(args, df, 0.5, confusion=bool(config['confusion']))
 
-    avg_preds, preds_char, preds_word, test_authors = ngram(train_df, test_df, config)
+    avg_preds, test_authors = ngram(train_df, test_df, config)
 
     avg_preds = label_encoder.inverse_transform(avg_preds)
-    preds_char = label_encoder.inverse_transform(preds_char)
-    preds_word = label_encoder.inverse_transform(preds_word)
     test_authors = label_encoder.inverse_transform(test_authors)
 
     # Indices where both lists are different
@@ -92,23 +101,14 @@ def test_ngram(args,config):
 
     # Calculate F1 score
     f1 = f1_score(test_authors, avg_preds, average='macro')
-    print('F1 Score average:' + str(f1))
-
-    f1 = f1_score(test_authors, preds_char, average='macro')
-    print('F1 Score char:' + str(f1))
-
-    # f1 = f1_score(test_authors, preds_char_dist, average='macro')
-    # print('F1 Score char dist:' + str(f1))
-
-    f1 = f1_score(test_authors, preds_word, average='macro')
-    print('F1 Score word:' + str(f1) + '\n')
+    print('F1 Score:' + str(f1))
 
     score = 0
     score_partner = 0
     score_rest = 0
 
     # Calculate the scores
-    if config['variables']['model'] == 'Frida':
+    if args.corpus_name == 'Frida' or args.corpus_name == 'RFM':
         for j in range(len(test_df['author'])):
             if test_authors[j] == avg_preds[j]:
                 score += 1
@@ -119,7 +119,7 @@ def test_ngram(args,config):
             else:
                 score_rest += 1
     # Calculate the scores
-    elif config['variables']['model'] == 'abc_nl1':
+    elif args.corpus_name == 'abc_nl1':
         for j in range(len(test_df['author'])):
             if test_authors[j] == avg_preds[j]:
                 score += 1

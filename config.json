@@ -1,31 +1,33 @@
 {
   "variables": {
-    "nAuthors": 8,
+    "nAuthors": 50,
     "wordRange": [1,2],
     "charRange": [2,5],
     "charDistRange": [1,3],
     "nBestFactorChar": 0.3,
-    "nBestFactorWord": 0.1,
+    "nBestFactorWord": 0.3,
     "lower": 0,
     "useLSA": 1,
-    "model": "both"
+    "model": "char"
   },
   "masking": {
-    "masking":0,
-    "nMasking": 2000,
+    "masking": 1,
+    "nMasking": 100,
     "singleMasking": 1
   },
   "BERT": {
-    "epochs": 5,
+    "epochs": 10,
     "dropout": 0.5,
     "learningRate": 2e-5,
-    "type": "meanpooling"
+    "type": "average",
+    "model": "RobBERT"
   },
   "Pan2019": {
     "problem": 1,
     "nClasses": 9
   },
-  "baseline": 0,
+  "baseline": 1,
+  "nBaseline": 100,
   "randomConversations": 0,
   "confusion": 0
 }

@@ -2,12 +2,12 @@ import random
 import pandas as pd
 import numpy as np
 
-def split(args,df2, p, conversations=None, confusion=False):
+def split(df2, p, conversations=None, confusion=False):
     """
     Function to split dataframe into train and test based on conversations number in Frida
-    :param df: Original dataframe
+    :param df2: Original dataframe
     :param p: Percentage of conversations in test set
-    :param conversations: Specific, non random split (tuple)
+    :param conversations: Specific, non-random split (tuple)
     :return: train and test dataframe
     """
     df = df2.copy()

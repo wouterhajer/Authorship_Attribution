@@ -1,43 +1,42 @@
 import lir
-from data_scaler import data_scaler
-from split import split
-from multiclass_classifier import binary_classifier
+from helper_functions.data_scaler import data_scaler
+from helper_functions.split import split
+from helper_functions.multiclass_classifier import binary_classifier
 import json
 import random
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 import numpy as np
-import matplotlib.patches as mpatches
 import time
 import itertools
 import argparse
 import pandas as pd
-from df_loader import load_df
+from helper_functions.df_loader import load_df
 import os
 import csv
 import plotting
 
 
-def model_scores(train_word, truth_word, test_word, train_char, truth_char, test_char, model):
+def model_scores(train_word, truth_word, test_word, train_char, truth_char, test_char, model, config):
     if model == 'both':
-        word = binary_classifier(train_word, truth_word, test_word)
-        char = binary_classifier(train_char, truth_char, test_char)
+        word = binary_classifier(train_word, truth_word, test_word, config)
+        char = binary_classifier(train_char, truth_char, test_char, config)
         return (word + char) / 2
     elif model == 'word':
-        return binary_classifier(train_word, truth_word, test_word)
+        return binary_classifier(train_word, truth_word, test_word, config)
     elif model == 'char':
-        return binary_classifier(train_char, truth_char, test_char)
+        return binary_classifier(train_char, truth_char, test_char, config)
 
 
-def LR(args,config):
+def LR(args, config):
     # Random Seed at file level
     random_seed = 33
     np.random.seed(random_seed)
     random.seed(random_seed)
 
     # Load dataframe
-    full_df, config = load_df(args,config)
+    full_df, config = load_df(args, config)
 
     # Encode author labels
     label_encoder = LabelEncoder()
@@ -52,6 +51,7 @@ def LR(args,config):
     authors = list(set(full_df.author_id))
     reduced_df = full_df.loc[full_df['author_id'].isin(authors[:n_authors])]
     add = False
+    print(n_authors)
     if add:
         additional_df = full_df.loc[full_df['author_id'].isin(authors[n_authors:2 * n_authors])]
     df = reduced_df.copy()
@@ -60,11 +60,11 @@ def LR(args,config):
     a = df['conversation'].unique()
     n_conv = len(a)
     combinations = []
-    for comb in itertools.combinations(a, n_conv-1):
+    for comb in itertools.combinations(a, n_conv - 1):
         rest = list(set(a) - set(comb))
         combinations.append([list(comb), list(rest)])
 
-    #combinations = [([1, 2, 4, 3, 6, 7, 8], [5])]
+    combinations = [([1, 2, 4, 3, 6, 7, 8], [5])]
 
     # Initialize arrays for collecting resulting LRs
     validation_lr = np.zeros(len(combinations) * n_authors ** 2)
@@ -84,7 +84,7 @@ def LR(args,config):
             train_df, test_df = train_test_split(df, test_size=0.125, stratify=df[['author']])
         else:
             # For now only works without confusion
-            train_df, test_df = split(args, df, 1/n_conv, comb, confusion=False)
+            train_df, test_df = split(args, df, 1 / n_conv, comb, confusion=False)
 
         train_df = train_df.reset_index(drop=True)
         test_df = test_df.reset_index(drop=True)
@@ -113,7 +113,7 @@ def LR(args,config):
 
                 scores = model_scores(scaled_train_data_word[train], train_df['h1'][train],
                                       scaled_train_data_word[calibrate], scaled_train_data_char[train],
-                                      train_df['h1'][train], scaled_train_data_char[calibrate], model)
+                                      train_df['h1'][train], scaled_train_data_char[calibrate], model, config)
 
                 #scores = np.log(scores/(1-scores))
 
@@ -129,7 +129,7 @@ def LR(args,config):
             # Calculate scores on validation set
             validation_scores = model_scores(scaled_train_data_word, train_df['h1'],
                                              scaled_test_data_word, scaled_train_data_char,
-                                             train_df['h1'], scaled_test_data_char, model)
+                                             train_df['h1'], scaled_test_data_char, model, config)
 
             #validation_scores = np.log(validation_scores / (1 - validation_scores))
 
@@ -140,7 +140,7 @@ def LR(args,config):
             k = i * n_authors ** 2 + suspect * n_authors
             validation_lr[k:k + n_authors] = lrs_validation[:n_authors]
             if add:
-                additional_lr[k:k + n_authors] = lrs_validation[n_authors:2*n_authors]
+                additional_lr[k:k + n_authors] = lrs_validation[n_authors:2 * n_authors]
             validation_truth[k:k + n_authors] = np.array(test_df['h1'])[:n_authors]
 
             # necessary wait due to limits of LIR library
@@ -156,20 +156,23 @@ def LR(args,config):
             avg += np.sum(lrs_validation == np.min(lrs_validation))
             total += len(lrs_validation) - 1
 
-        print(avg/total)
+        print(avg / total)
 
-        #KDE plot
+    #KDE plot
     with plotting.show() as ax:
         ones_list = np.ones(len(calibration_truth))
-        d = (np.max(calibration_scores) - np.min(calibration_scores))/5
-        ax.calibrator_fit(calibrator, score_range=[np.min(calibration_scores)-d, np.max(calibration_scores)+d], resolution=1000)
+        d = (np.max(calibration_scores) - np.min(calibration_scores)) / 5
+        ax.calibrator_fit(calibrator, score_range=[np.min(calibration_scores) - d, np.max(calibration_scores) + d],
+                          resolution=1000)
 
         ax.score_distribution(scores=calibration_scores[calibration_truth == 1],
                               y=ones_list[calibration_truth == 1],
-                              bins=np.linspace(np.min(calibration_scores)-d, np.max(calibration_scores)+d, 11), weighted=True)
+                              bins=np.linspace(np.min(calibration_scores) - d, np.max(calibration_scores) + d, 11),
+                              weighted=True)
         ax.score_distribution(scores=calibration_scores[calibration_truth == 0],
                               y=ones_list[calibration_truth == 0] * 0,
-                              bins=np.linspace(np.min(calibration_scores)-d, np.max(calibration_scores)+d, 21), weighted=True)
+                              bins=np.linspace(np.min(calibration_scores) - d, np.max(calibration_scores) + d, 21),
+                              weighted=True)
         ax.xlabel('SVM score')
         ax.legend()
         plt.show()
@@ -181,8 +184,6 @@ def LR(args,config):
     """
     print(f"Nauthors: {n_authors}")
 
-    h1_lrs = validation_lr[validation_truth == 1]
-    h2_lrs = validation_lr[validation_truth == 0]
     cllr = lir.metrics.cllr(validation_lr, validation_truth)
     cllr_min = lir.metrics.cllr_min(validation_lr, validation_truth)
     cllr_cal = cllr - cllr_min
@@ -193,38 +194,29 @@ def LR(args,config):
     cllrs_min = np.zeros(n_authors)
     cllrs_cal = np.zeros(n_authors)
     for j in range(n_authors):
-        lr_a = np.array([lr for i,lr in enumerate(validation_lr) if ((j + 1) * n_authors > i % n_authors**2 >= j * n_authors)])
-        truth_a = np.array([a for i,a in enumerate(validation_truth) if ((j + 1) * n_authors > i % n_authors**2 >= j * n_authors)])
+        lr_a = np.array(
+            [lr for i, lr in enumerate(validation_lr) if ((j + 1) * n_authors > i % n_authors ** 2 >= j * n_authors)])
+        truth_a = np.array(
+            [a for i, a in enumerate(validation_truth) if ((j + 1) * n_authors > i % n_authors ** 2 >= j * n_authors)])
         cllrs[j] = lir.metrics.cllr(lr_a, truth_a)
         cllrs_min[j] = lir.metrics.cllr_min(lr_a, truth_a)
         cllrs_cal[j] = cllrs[j] - cllrs_min[j]
         if j % 60 == 0:
             with plotting.show() as ax:
+                print(cllrs[j], cllrs_min[j], cllrs_cal[j])
                 ax.pav(lr_a, truth_a)
             plt.show()
 
-    odd = cllrs[::2]
-    even = cllrs[1::2]
+    # Multiple box plots on one Axes
+    fig, ax = plt.subplots()
+    ax.boxplot([cllrs, cllrs_min, cllrs_cal], labels=['$C_{llr}$', '$C_{llr}^{min}$', '$C_{llr}^{cal}$'])
 
-    print(np.corrcoef(odd,even)[0,1])
-    plt.scatter(odd, even,label = 'cllr',marker='o')
-    odd = cllrs_min[::2]
-    even = cllrs_min[1::2]
-
-    print(np.corrcoef(odd, even)[0, 1])
-    plt.scatter(odd, even, label='cllr_min', marker='s')
-    odd = cllrs_cal[::2]
-    even = cllrs_cal[1::2]
-
-    print(np.corrcoef(odd, even)[0, 1])
-    plt.scatter(odd, even, label='cllr_cal', marker='P')
-    plt.legend()
     plt.show()
 
     authors = np.unique(train_df['author'])
-    plt.scatter(authors,cllrs,label = 'cllr',marker='o')
-    plt.scatter(authors,cllrs_min,label = 'cllr_min',marker='s')
-    plt.scatter(authors, cllrs_cal,label = 'cllr_cal',marker = 'P')
+    plt.scatter(authors, cllrs, label='cllr', marker='o')
+    plt.scatter(authors, cllrs_min, label='cllr_min', marker='s')
+    plt.scatter(authors, cllrs_cal, label='cllr_cal', marker='P')
     plt.legend()
     plt.show()
 
@@ -232,15 +224,30 @@ def LR(args,config):
     output_file = args.output_path + os.sep + 'LR_' + args.corpus_name + ".csv"
     with open(output_file, 'a', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow([round(cllr, 3), round(cllr_min, 3),round(cllr_cal, 3), round(np.mean(cllrs_min),3),\
-                         round(np.mean(cllrs_cal),3),config['variables']['nAuthors'], \
+        writer.writerow([round(cllr, 3), round(cllr_min, 3), round(cllr_cal, 3), round(np.mean(cllrs_min), 3),
+                         round(np.mean(cllrs_cal), 3), config['variables']['nAuthors'],
                          config['masking']['masking'], config['masking']['nMasking'], config['variables']['model']])
+    '''
+    output_file = args.output_path + os.sep + 'baseline_LRS_' + args.corpus_name + ".csv"
+    with open(output_file, 'a', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(validation_lr)
+        writer.writerow(validation_truth)
+    '''
 
-
+    h1_lrs = validation_lr[validation_truth == 1]
+    h2_lrs = validation_lr[validation_truth == 0]
     freq1 = np.histogram(h1_lrs, bins=[-np.inf] + [1, 100] + [np.inf])[0] / len(h1_lrs)
     freq2 = np.histogram(h2_lrs, bins=[-np.inf] + [1, 100] + [np.inf])[0] / len(h2_lrs)
+
     print(f"H1 samples with LR < 1: {freq1[0] * 100:.3f}%, H2 samples with LR > 1: {(freq2[1] + freq2[2]) * 100:.3f}%")
-    print(f"H1 samples with LR < 100: {(freq1[0] + freq1[1]) * 100:.3f}%, H2 samples with LR > 100: {freq2[2] * 100:.3f}%")
+    print(
+        f"H1 samples with LR < 100: {(freq1[0] + freq1[1]) * 100:.3f}%, H2 samples with LR > 100: {freq2[2] * 100:.3f}%")
+    if add:
+        add_lrs = additional_lr
+        freq3 = np.histogram(add_lrs, bins=[-np.inf] + [1] + [np.inf])[0] / len(add_lrs)
+        print(freq3)
+        print(f"Additional samples with LR > 1: {(freq3[1]) * 100:.3f}%")
     print(f"H1 sample with lowest LR: {np.min(h1_lrs):.3f}, H2 sample with highest LR: {np.max(h2_lrs):.3f}")
     print(f"H1 sample with highest LR: {np.max(h1_lrs):.3f}, H2 sample with lowest LR: {np.min(h2_lrs):.3f}")
 
@@ -279,6 +286,7 @@ def main():
     with open('config.json') as f:
         config = json.load(f)
     LR(args, config)
+
 
 if __name__ == '__main__':
     main()

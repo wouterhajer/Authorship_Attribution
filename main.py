@@ -5,12 +5,14 @@ import random
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import f1_score
-from split import split
+from helper_functions.split import split
 import itertools
 from ngram import ngram
 import argparse
-from df_loader import load_df
+from helper_functions.df_loader import load_df
 import pandas as pd
+import os
+import csv
 
 def average_f1(args, config):
     start = time.time()
@@ -20,7 +22,7 @@ def average_f1(args, config):
     np.random.seed(random_seed)
     random.seed(random_seed)
 
-    full_df,config = load_df(args,config)
+    full_df, config = load_df(args, config)
 
     # Encode author labels
     label_encoder = LabelEncoder()
@@ -33,6 +35,7 @@ def average_f1(args, config):
     # Find all conversation numbers and make all combinations of 6 in train set, 2 in test set
     a = df['conversation'].unique()
     combinations = []
+    print(a)
     for comb in itertools.combinations(a, len(a)-1):
         rest = list(set(a) - set(comb))
         combinations.append([list(comb), list(rest)])
@@ -53,25 +56,20 @@ def average_f1(args, config):
         else:
             train_df, test_df = split(args,df, 0.25, comb, confusion=bool(config['confusion']))
         pd.set_option('display.max_columns', None)
-        #print(train_df)
-        #print(test_df)
+
         # Train SVMs, calculate predictions
-        avg_preds, preds_char, preds_word, test_authors = ngram(train_df, test_df, config)
+        avg_preds, test_authors = ngram(train_df, test_df, config)
 
         # Inverse label encodings
         avg_preds = label_encoder.inverse_transform(avg_preds)
-        preds_char = label_encoder.inverse_transform(preds_char)
-        preds_word = label_encoder.inverse_transform(preds_word)
+
         test_authors = label_encoder.inverse_transform(test_authors)
         print(test_authors)
         print(avg_preds)
         print(list(test_df['author']))
-        # When using baseline, only word prediction counts
-        if bool(config['baseline']):
-            avg_preds = preds_word
 
         # Calculate the scores
-        if args.corpus_name == 'Frida':
+        if args.corpus_name == 'Frida' or 'RFM':
             for j in range(len(test_df['author'])):
                 if test_authors[j] == avg_preds[j]:
                     score += 1

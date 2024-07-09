@@ -4,7 +4,7 @@ def mask(df, vocab_word, config):
     :param df: dataframe containing texts and labels
     :param vocab_word: list containing all words to be kept
     :param config: dictionary containing variable values
-    :return: dataframe after masking
+    :return: masked dataframe
     """
     df = df.reset_index(drop=True)
     single_masking = bool(config['masking']['singleMasking'])
