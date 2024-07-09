@@ -1,8 +1,7 @@
 import re
 
-"""
-Modified from Boeninghoff et all
-"""
+# Functions modified from the code created by Lukas Muttenthaler, Gordon Lucas and Janek Amann
+# The original code can be found at https://github.com/pan-webis-de/muttenthaler19
 
 def regex(string: str, model: str):
     """
@@ -15,12 +14,12 @@ def regex(string: str, model: str):
     if model == 'word':
         # if model is a word n-gram model, remove all punctuation
         string = ''.join([char for char in string if char.isalnum()])
+        string = string.lower()
 
     if model == 'char-dist':
         string = re.sub("[a-zA-Z]+", "*", string)
 
     return string
-
 
 def frequency(tokens: list):
     """
@@ -33,7 +32,6 @@ def frequency(tokens: list):
         else:
             freq[token] = 1
     return freq
-
 
 def represent_text(text, n: int, model: str):
     """
@@ -61,7 +59,6 @@ def represent_text(text, n: int, model: str):
     freq = frequency(tokens)
 
     return freq
-
 
 def extract_vocabulary(texts: list, n: int, ft: int, model: str):
     """
