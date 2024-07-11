@@ -1,8 +1,7 @@
-
 import lir
 from helper_functions.split import split
 from helper_functions.data_scaler import data_scaler
-from helper_functions.multiclass_classifier import binary_classifier
+from helper_functions.classifiers import binary_classifier
 import json
 import random
 from sklearn.preprocessing import LabelEncoder
@@ -18,24 +17,10 @@ import os
 import csv
 from helper_functions import plotting
 import torch
-from transformers import BertTokenizer, BertModel, RobertaTokenizer, RobertaModel
-from torch.utils.data import DataLoader
-from helper_functions.BERT_helper import (BertMeanPoolingClassifier, CustomDataset, BertAverageClassifier, BertTruncatedClassifier,
-                                          finetune_bert, validate_bert)
+from transformers import BertTokenizer, RobertaTokenizer
 from helper_functions.text_transformer import transform_list_of_texts
 from LR_BERT import bert_model_scores
-
-
-def model_scores(train_word, truth_word, test_word, train_char, truth_char, test_char, model, config):
-    if model == 'both':
-        word = binary_classifier(train_word, truth_word, test_word, config)
-        char = binary_classifier(train_char, truth_char, test_char, config)
-        return (word + char) / 2
-    elif model == 'word':
-        return binary_classifier(train_word, truth_word, test_word, config)
-    elif model == 'char':
-        return binary_classifier(train_char, truth_char, test_char, config)
-
+from helper_functions.classifiers import SVM_model_scores
 
 def LR(args, config):
     # Random Seed at file level
@@ -57,27 +42,27 @@ def LR(args, config):
     # Limit the authors to nAuthors
     authors = list(set(full_df.author_id))
     reduced_df = full_df.loc[full_df['author_id'].isin(authors[:n_authors])]
-    add = False
-    print(n_authors)
+    add = bool(config['addAuthors'])
+
     if add:
         additional_df = full_df.loc[full_df['author_id'].isin(authors[n_authors:2 * n_authors])]
     df = reduced_df.copy()
 
     # Make a list of possible combinations of conversations when leaving one out
-    a = df['conversation'].unique()
-    n_conv = len(a)
-    combinations = []
-    for comb in itertools.combinations(a, n_conv - 1):
-        rest = list(set(a) - set(comb))
-        combinations.append([list(comb), list(rest)])
-
-    if not bool(config['crossVal']):
-        combinations = [([1, 2, 4, 3, 6, 7, 8], [5])]
+    convs = df['conversation'].unique()
+    n_conv = len(convs)
+    if bool(config['crossVal']):
+        combinations = []
+        for comb in itertools.combinations(convs, n_conv - 1):
+            rest = list(set(convs) - set(comb))
+            combinations.append([list(comb), list(rest)])
+    else:
+        convs_list = list(convs)
+        combinations = [(convs_list[:-1],[convs_list[-1]])]
 
     # Initialize arrays for collecting resulting LRs
     validation_lr = np.zeros(len(combinations) * n_authors ** 2)
-    if add:
-        additional_lr = np.zeros(len(combinations) * n_authors ** 2)
+    additional_lr = np.zeros(len(combinations) * n_authors ** 2)
     validation_truth = np.zeros(len(combinations) * n_authors ** 2)
 
     for i, comb in enumerate(combinations):
@@ -135,7 +120,7 @@ def LR(args, config):
                 calibrate = train_df.index[train_df['conversation'] == c].tolist()
 
                 if config['modelType'] == 'SVM' or config['modelType'] == 'baseline':
-                    scores = model_scores(scaled_train_data_word[train], train_df['h1'][train],
+                    scores = SVM_model_scores(scaled_train_data_word[train], train_df['h1'][train],
                                           scaled_train_data_word[calibrate], scaled_train_data_char[train],
                                           train_df['h1'][train], scaled_train_data_char[calibrate], model, config)
 
@@ -154,7 +139,7 @@ def LR(args, config):
 
             # Calculate scores on validation set
             if config['modelType'] == 'SVM' or config['modelType'] == 'baseline':
-                validation_scores = model_scores(scaled_train_data_word, train_df['h1'],
+                validation_scores = SVM_model_scores(scaled_train_data_word, train_df['h1'],
                                                  scaled_test_data_word, scaled_train_data_char,
                                                  train_df['h1'], scaled_test_data_char, model, config)
 
@@ -174,8 +159,7 @@ def LR(args, config):
 
             # necessary wait due to limits of LIR library
             time.sleep(0.01)
-
-    #KDE plot
+    # KDE plot
     with plotting.show() as ax:
         ones_list = np.ones(len(calibration_truth))
         d = (np.max(calibration_scores) - np.min(calibration_scores)) / 5
@@ -194,17 +178,8 @@ def LR(args, config):
         ax.legend()
         plt.show()
 
-    """
-    with lir.plotting.show() as ax:
-        ax.tippett(validation_lr[i*n_authors**2:(i+1)*n_authors**2], validation_truth[i*n_authors**2:(i+1)*n_authors**2])
-    plt.show()
-    """
     print(f"Number of authors: {n_authors}")
 
-    cllr = lir.metrics.cllr(validation_lr, validation_truth)
-    cllr_min = lir.metrics.cllr_min(validation_lr, validation_truth)
-    cllr_cal = cllr - cllr_min
-    print(f"Cllr: {cllr:.3f}, Cllr_min: {cllr_min:.3f}, Cllr_cal: {cllr_cal:.3f}")
     cllrs = np.zeros(n_authors)
     cllrs_min = np.zeros(n_authors)
     cllrs_cal = np.zeros(n_authors)
@@ -218,7 +193,6 @@ def LR(args, config):
         cllrs_cal[j] = cllrs[j] - cllrs_min[j]
         if j % 60 == 0:
             with plotting.show() as ax:
-                print(cllrs[j], cllrs_min[j], cllrs_cal[j])
                 ax.pav(lr_a, truth_a)
             plt.show()
 
@@ -232,7 +206,7 @@ def LR(args, config):
     with open(output_file, 'a', newline='') as file:
         writer = csv.writer(file)
         if config['modelType'] == 'SVM' or config['modelType'] == 'baseline':
-            writer.writerow([round(np.mean(cllrs), 3), round(np.mean(cllrs_min), 3),round(np.mean(cllrs_cal), 3),
+            writer.writerow([round(np.mean(cllrs), 3), round(np.mean(cllrs_min), 3), round(np.mean(cllrs_cal), 3),
                              config['modelType'], config['variables']['nAuthors'], config['masking']['masking'],
                              config['masking']['nMasking'], config['variables']['model']])
         elif config['modelType'] == 'BERT':
@@ -257,8 +231,7 @@ def LR(args, config):
     print(
         f"H1 samples with LR < 100: {(freq1[0] + freq1[1]) * 100:.3f}%, H2 samples with LR > 100: {freq2[2] * 100:.3f}%")
     if add:
-        add_lrs = additional_lr
-        freq3 = np.histogram(add_lrs, bins=[-np.inf] + [1] + [np.inf])[0] / len(add_lrs)
+        freq3 = np.histogram(additional_lr, bins=[-np.inf] + [1] + [np.inf])[0] / len(additional_lr)
         print(f"Additional samples with LR > 1: {(freq3[1]) * 100:.3f}%")
     print(f"H1 sample with lowest LR: {np.min(h1_lrs):.3f}, H2 sample with highest LR: {np.max(h2_lrs):.3f}")
     print(f"H1 sample with highest LR: {np.max(h1_lrs):.3f}, H2 sample with lowest LR: {np.min(h2_lrs):.3f}")

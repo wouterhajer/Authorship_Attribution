@@ -7,9 +7,10 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import f1_score
 from helper_functions.split import split
 import itertools
-from ngram import ngram
+from helper_functions.classifiers import feature_based_classification
 import argparse
 from helper_functions.df_loader import load_df
+from helper_functions.group_scores import group_scores
 import pandas as pd
 import os
 import csv
@@ -35,7 +36,6 @@ def average_f1(args, config):
     # Find all conversation numbers and make all combinations of 6 in train set, 2 in test set
     a = df['conversation'].unique()
     combinations = []
-    print(a)
     for comb in itertools.combinations(a, len(a)-1):
         rest = list(set(a) - set(comb))
         combinations.append([list(comb), list(rest)])
@@ -57,50 +57,27 @@ def average_f1(args, config):
             train_df, test_df = split(df, 0.25, comb, confusion=bool(config['confusion']))
         pd.set_option('display.max_columns', None)
 
-        # Train SVMs, calculate predictions
-        avg_preds, test_authors = ngram(train_df, test_df, config)
+        # Train models, calculate predictions
+        avg_preds, test_authors = feature_based_classification(train_df, test_df, config)
 
         # Inverse label encodings
         avg_preds = label_encoder.inverse_transform(avg_preds)
-
         test_authors = label_encoder.inverse_transform(test_authors)
-        print(test_authors)
-        print(avg_preds)
-        print(list(test_df['author']))
 
         # Calculate the scores
-        if args.corpus_name == 'Frida' or args.corpus_name == 'RFM':
-            for j in range(len(test_df['author'])):
-                if test_authors[j] == avg_preds[j]:
-                    score += 1
-                elif test_authors[j] == avg_preds[j] - 1 and test_authors[j] % 2 == 1:
-                    score_partner += 1
-                elif test_authors[j] == avg_preds[j] + 1 and test_authors[j] % 2 == 0:
-                    score_partner += 1
-                else:
-                    score_rest += 1
-        # Calculate the scores
-        elif args.corpus_name == 'abc_nl1':
-            print('hello')
-            for j in range(len(test_df['author'])):
-                if test_authors[j] == avg_preds[j]:
-                    score += 1
-                elif avg_preds[j] % 2 == 0 and test_authors[j] % 2 == 1:
-                    score_partner += 1
-                elif avg_preds[j] % 2 == 1 and test_authors[j] % 2 == 0:
-                    score_partner += 1
-                else:
-                    score_rest += 1
+        score_i, score_partner_i, score_rest_i = group_scores(test_authors, avg_preds, args)
+        score += score_i
+        score_partner += score_partner_i
+        score_rest += score_rest_i
 
-        n_prob = len(test_authors)
         n_auth = len(set(test_authors))
         f1 = f1_score(test_authors, avg_preds, average='macro')
-
         f1_total += f1
+
         # Print the scores at this iteration
-        print("Score = {:.4f}, random chance = {:.4f} ".format(score / n_prob / (i + 1), 1 / n_auth))
-        print("Score partner = {:.4f}, random chance = {:.4f} ".format(score_partner / n_prob / (i + 1), 1 / n_auth))
-        print("Score rest = {:.4f}, random chance = {:.4f} ".format(score_rest / n_prob / (i + 1), 1 - 2 / n_auth))
+        print("Score = {:.4f}, random chance = {:.4f} ".format(score / (i + 1), 1 / n_auth))
+        print("Score partner = {:.4f}, random chance = {:.4f} ".format(score_partner / (i + 1), 1 / n_auth))
+        print("Score rest = {:.4f}, random chance = {:.4f} ".format(score_rest  / (i + 1), 1 - 2 / n_auth))
         print("F1-score = {:.4f}".format(f1))
         print("Average F1-score = {:.4f}".format(f1_total / (i + 1)))
 
@@ -110,10 +87,9 @@ def average_f1(args, config):
     output_file = args.output_path + os.sep + 'main_' + args.corpus_name + ".csv"
     with open(output_file, 'a', newline='') as file:
         writer = csv.writer(file)
-
-        writer.writerow([round(f1_total/(i+1),3), round(score / n_prob / (i + 1),3),\
-                         round(score_partner / n_prob / (i + 1),3), round(score_rest / n_prob / (i + 1),3),\
-                         config['confusion'],config['variables']['nAuthors'], config['baseline'],\
+        writer.writerow([round(f1_total/(i +1),3), round(score / (i + 1),3),
+                         round(score_partner / (i + 1),3), round(score_rest / (i + 1),3),
+                         config['confusion'],config['variables']['nAuthors'], config['baseline'],
                          config['masking']['masking'], config['masking']['nMasking'], config['variables']['model']])
 
 def main():

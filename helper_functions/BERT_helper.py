@@ -59,7 +59,8 @@ class BertAverageClassifier(nn.Module):
             outputs[i] = self.dense(inputs[i][0])
 
         # Mean pooling across the sequence dimension
-        pooled_scores = torch.mean(outputs, dim=0)[0]
+        pooled_scores = torch.mean(outputs, dim=0)
+        #pooled_scores = torch.max(outputs, dim=0)[0]
 
         return pooled_scores
 
@@ -73,7 +74,8 @@ class BertAverageClassifier(nn.Module):
             outputs[i] = self.dense(inputs[i][0])
 
         # Mean pooling across the sequence dimension
-        pooled_scores = torch.mean(outputs, dim=0)[0]
+        pooled_scores = torch.mean(outputs, dim=0)
+        # pooled_scores = torch.max(outputs, dim=0)[0]
         return pooled_scores
 
 
@@ -90,20 +92,20 @@ class BertTruncatedClassifier(nn.Module):
     def forward(self, encodings):
         # Obtain BERT hidden states
         inputs = self.bert_model(**encodings)['last_hidden_state']
-        output = inputs
-        # Apply dropout on the dense layer and pass through dense layer
-        pooled_output = self.dropout(output)
 
-        logits = self.dense(pooled_output[0,0])
-        return logits
+        # Apply dropout on the dense layer and pass through dense layer
+        pooled_output = self.dropout(inputs)
+
+        output = self.dense(pooled_output[0,0])
+        return output
 
     def inference(self, encodings):
         # Obtain BERT hidden states
         inputs = self.bert_model(**encodings)['last_hidden_state']
 
         # Pass through dense layer
-        logits = self.dense(inputs[0,0])
-        return logits
+        output = self.dense(inputs[0,0])
+        return output
 
 
 class CustomDataset(Dataset):

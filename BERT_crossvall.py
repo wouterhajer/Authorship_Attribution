@@ -26,33 +26,6 @@ def combinations(conv, n):
     return combinations
 
 
-def partner(test_authors, avg_preds, args):
-    score, score_partner, score_rest = 0, 0, 0
-    # Calculate the scores
-    if args.corpus_name == 'Frida':
-        for j in range(len(test_authors)):
-            if test_authors[j] == avg_preds[j]:
-                score += 1
-            elif test_authors[j] == avg_preds[j] - 1 and test_authors[j] % 2 == 1:
-                score_partner += 1
-            elif test_authors[j] == avg_preds[j] + 1 and test_authors[j] % 2 == 0:
-                score_partner += 1
-            else:
-                score_rest += 1
-    # Calculate the scores
-    elif args.corpus_name == 'abc_nl1':
-        for j in range(len(test_authors)):
-            if test_authors[j] == avg_preds[j]:
-                score += 1
-            elif avg_preds[j] % 2 == 0 and test_authors[j] % 2 == 1:
-                score_partner += 1
-            elif avg_preds[j] % 2 == 1 and test_authors[j] % 2 == 0:
-                score_partner += 1
-            else:
-                score_rest += 1
-    return score, score_partner, score_rest
-
-
 def BERT_crossvall(args, config):
     config['baseline'] = 0
     config['masking']['masking'] = 0
@@ -79,7 +52,7 @@ def BERT_crossvall(args, config):
     # Find all conversation numbers and make all combinations of 7 in train set, 1 in test set
     combs = combinations(df['conversation'].unique(), 1)
 
-    types = ['meanpooling']
+    types = ['average']
     models = ['RobBERT']
 
     for type in types:

@@ -13,7 +13,7 @@ def load_df(args, config):
         df_file = args.input_path + os.sep + args.corpus_name + ".csv"
         full_df = pd.read_csv(df_file)
 
-    # Use SUBTEX_NL frequency list for abc_nl, use those created with df_creator2.py for other corpora
+    # Use SUBTLEX_NL frequency list for abc_nl, use those created with df_creator2.py for other corpora
     if args.corpus_name == 'abc_nl1':
         with open('../Frequenties.csv', newline='', encoding='MacRoman') as f:
             reader = csv.reader(f)
@@ -37,10 +37,9 @@ def load_df(args, config):
         config['variables']['nBestFactorWord'] = 1
 
     if args.corpus_name == 'Frida':
-        # only keep authors with at least 6 recordings to get a uniform training set
-        v = full_df['author'].value_counts()
         full_df = full_df[full_df['text'].map(len) < 5000]
         v = full_df['author'].value_counts()
+        # only keep authors with the full 8 recordings to get a uniform training set
         full_df = full_df[full_df['author'].isin(v[v >= 8].index)]
         full_df = full_df.reset_index(drop=True)
 

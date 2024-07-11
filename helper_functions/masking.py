@@ -12,6 +12,7 @@ def mask(df, vocab_word, config):
         i = 0
         while i < len(text):
             if not text[i].isalpha():
+                # keep everything that is not a letter
                 i += 1
             else:
                 j = i + 1
@@ -21,6 +22,7 @@ def mask(df, vocab_word, config):
                         if j == len(text):
                             break
                 word = text[i:j]
+
                 # Remove punctuation to fit word vocabulary
                 string = ''.join([char for char in word if char.isalnum()])
 
@@ -33,5 +35,6 @@ def mask(df, vocab_word, config):
                         i = j
                 else:
                     i = j
+        # Replace the text string with the modified text string
         df.loc[k, 'text'] = text
     return df
