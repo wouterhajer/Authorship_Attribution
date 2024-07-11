@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from functools import partial
 from lir.bayeserror import plot_nbe as nbe
 
-# Modified from https://github.com/NetherlandsForensicInstitute/lir/blob/master/lir/_plotting_new.py
+# Copied from https://github.com/NetherlandsForensicInstitute/lir/blob/master/lir/_plotting_new.py
 # to modify some labels in plot to the variables used in the corresponding thesis
 
 class Canvas:
