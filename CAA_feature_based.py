@@ -1,21 +1,24 @@
 import time
-import numpy as np
 import json
 import random
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import f1_score
-from helper_functions.split import split
-import itertools
-from helper_functions.classifiers import feature_based_classification
 import argparse
-from helper_functions.df_loader import load_df
-from helper_functions.group_scores import group_scores
-import pandas as pd
 import os
 import csv
 
-def average_f1(args, config):
+import pandas as pd
+import numpy as np
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import f1_score
+
+from helper_functions.split import split, combinations
+from helper_functions.classifiers import feature_based_classification
+from helper_functions.df_loader import load_df
+from helper_functions.group_scores import group_scores
+
+
+def CAA_feature_based(args, config):
     start = time.time()
 
     # Random Seed at file level
@@ -33,12 +36,9 @@ def average_f1(args, config):
     author_ids = list(set(full_df['author_id']))
     df = full_df.loc[full_df['author_id'].isin(author_ids[:config['variables']['nAuthors']])]
 
-    # Find all conversation numbers and make all combinations of 6 in train set, 2 in test set
-    a = df['conversation'].unique()
-    combinations = []
-    for comb in itertools.combinations(a, len(a)-1):
-        rest = list(set(a) - set(comb))
-        combinations.append([list(comb), list(rest)])
+    # Make a list of possible combinations of conversations when leaving one out
+    convs = df['conversation'].unique()
+    combs = combinations(convs, bool(config['crossVal']))
 
     score = 0
     score_partner = 0
@@ -47,7 +47,7 @@ def average_f1(args, config):
 
     # For every combination of conversations in train/test set, calculate the scores for true author,
     # conversation partner and other speakers
-    for i, comb in enumerate(combinations):
+    for i, comb in enumerate(combs):
         print(i)
 
         # Use random or deterministic split
@@ -102,7 +102,7 @@ def main():
     with open('config.json') as f:
         config = json.load(f)
 
-    average_f1(args, config)
+    CAA_feature_based(args, config)
 
 
 if __name__ == '__main__':

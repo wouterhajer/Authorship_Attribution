@@ -1,8 +1,22 @@
 import random
 import pandas as pd
 import numpy as np
+import itertools
 
-def split(df, p, conversations=None, confusion=False):
+
+def combinations(convs, crossval):
+    n_conv = len(convs)
+    if crossval:
+        combinations = []
+        for comb in itertools.combinations(convs, n_conv - 1):
+            rest = list(set(convs) - set(comb))
+            combinations.append([list(comb), list(rest)])
+    else:
+        convs_list = list(convs)
+        combinations = [(convs_list[:-1], [convs_list[-1]])]
+    return combinations
+
+def split(df, p=0.125, conversations=None, confusion=False):
     """
     Function to split dataframe into train and test based on conversations number in Frida
     :param df: Original dataframe

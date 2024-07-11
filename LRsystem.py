@@ -1,7 +1,6 @@
 import lir
-from helper_functions.split import split
+from helper_functions.split import split, combinations
 from helper_functions.data_scaler import data_scaler
-from helper_functions.classifiers import binary_classifier
 import json
 import random
 from sklearn.preprocessing import LabelEncoder
@@ -9,7 +8,6 @@ from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 import numpy as np
 import time
-import itertools
 import argparse
 import pandas as pd
 from helper_functions.df_loader import load_df
@@ -50,22 +48,14 @@ def LR(args, config):
 
     # Make a list of possible combinations of conversations when leaving one out
     convs = df['conversation'].unique()
-    n_conv = len(convs)
-    if bool(config['crossVal']):
-        combinations = []
-        for comb in itertools.combinations(convs, n_conv - 1):
-            rest = list(set(convs) - set(comb))
-            combinations.append([list(comb), list(rest)])
-    else:
-        convs_list = list(convs)
-        combinations = [(convs_list[:-1],[convs_list[-1]])]
+    combs = combinations(convs, bool(config['crossVal']))
 
     # Initialize arrays for collecting resulting LRs
-    validation_lr = np.zeros(len(combinations) * n_authors ** 2)
-    additional_lr = np.zeros(len(combinations) * n_authors ** 2)
-    validation_truth = np.zeros(len(combinations) * n_authors ** 2)
+    validation_lr = np.zeros(len(combs) * n_authors ** 2)
+    additional_lr = np.zeros(len(combs) * n_authors ** 2)
+    validation_truth = np.zeros(len(combs) * n_authors ** 2)
 
-    for i, comb in enumerate(combinations):
+    for i, comb in enumerate(combs):
         df = reduced_df.copy()
 
         # Use random or deterministic split
@@ -73,7 +63,7 @@ def LR(args, config):
             train_df, test_df = train_test_split(df, test_size=0.125, stratify=df[['author']])
         else:
             # For now only works without confusion
-            train_df, test_df = split(df, 1 / n_conv, comb, confusion=False)
+            train_df, test_df = split(df, conversations = comb, confusion=False)
 
         train_df = train_df.reset_index(drop=True)
         test_df = test_df.reset_index(drop=True)
@@ -214,6 +204,7 @@ def LR(args, config):
                              config['modelType'], config['variables']['nAuthors'], config['BERT']['model'],
                              config['BERT']['type'], config['BERT']['epochs']])
 
+    # Print all outputted LRS for further plotting
     '''
     output_file = args.output_path + os.sep + 'LRS_' + config['modelType'] + args.corpus_name + ".csv"
     with open(output_file, 'a', newline='') as file:

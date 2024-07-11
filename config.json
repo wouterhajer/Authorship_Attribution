@@ -17,15 +17,12 @@
     "singleMasking": 1
   },
   "BERT": {
-    "epochs": 10,
+    "epochsPerIteration": 5,
+    "iterations": 10,
     "dropout": 0.5,
     "learningRate": 2e-5,
     "type": "average",
     "model": "RobBERT"
-  },
-  "Pan2019": {
-    "problem": 1,
-    "nClasses": 9
   },
   "baseline": 0,
   "nBaseline": 100,
