@@ -1,6 +1,7 @@
+
 import lir
-from helper_functions.data_scaler import data_scaler
 from helper_functions.split import split
+from helper_functions.data_scaler import data_scaler
 from helper_functions.multiclass_classifier import binary_classifier
 import json
 import random
@@ -16,6 +17,13 @@ from helper_functions.df_loader import load_df
 import os
 import csv
 from helper_functions import plotting
+import torch
+from transformers import BertTokenizer, BertModel, RobertaTokenizer, RobertaModel
+from torch.utils.data import DataLoader
+from helper_functions.BERT_helper import (BertMeanPoolingClassifier, CustomDataset, BertAverageClassifier, BertTruncatedClassifier,
+                                          finetune_bert, validate_bert)
+from helper_functions.text_transformer import transform_list_of_texts
+from LR_BERT import bert_model_scores
 
 
 def model_scores(train_word, truth_word, test_word, train_char, truth_char, test_char, model, config):
@@ -45,7 +53,6 @@ def LR(args, config):
 
     model = config['variables']['model']
     n_authors = config['variables']['nAuthors']
-    cllr_avg = np.zeros(4)
 
     # Limit the authors to nAuthors
     authors = list(set(full_df.author_id))
@@ -64,7 +71,8 @@ def LR(args, config):
         rest = list(set(a) - set(comb))
         combinations.append([list(comb), list(rest)])
 
-    combinations = [([1, 2, 4, 3, 6, 7, 8], [5])]
+    if not bool(config['crossVal']):
+        combinations = [([1, 2, 4, 3, 6, 7, 8], [5])]
 
     # Initialize arrays for collecting resulting LRs
     validation_lr = np.zeros(len(combinations) * n_authors ** 2)
@@ -72,11 +80,7 @@ def LR(args, config):
         additional_lr = np.zeros(len(combinations) * n_authors ** 2)
     validation_truth = np.zeros(len(combinations) * n_authors ** 2)
 
-    # Initialize scoring for number of lowerbounds
-    avg = 0
-    total = 0
     for i, comb in enumerate(combinations):
-        print(i)
         df = reduced_df.copy()
 
         # Use random or deterministic split
@@ -95,8 +99,26 @@ def LR(args, config):
         if add:
             test_df = pd.concat([test_df, additional_df[additional_df['conversation'] == comb[1][0]]])
 
-        scaled_train_data_word, scaled_test_data_word = data_scaler(train_df, test_df, config, model='word')
-        scaled_train_data_char, scaled_test_data_char = data_scaler(train_df, test_df, config, model='char-std')
+        if config['modelType'] == 'SVM' or config['modelType'] == 'baseline':
+            scaled_train_data_word, scaled_test_data_word = data_scaler(train_df, test_df, config, model='word')
+            scaled_train_data_char, scaled_test_data_char = data_scaler(train_df, test_df, config, model='char-std')
+
+        elif config['modelType'] == 'BERT':
+            # Assign device and check if it is GPU or not
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            # Set tokenizer and tokenize training and test texts
+            if config['BERT']['model'] == 'RobBERT':
+                tokenizer = RobertaTokenizer.from_pretrained('DTAI-KULeuven/robbert-2023-dutch-base')
+            elif config['BERT']['model'] == 'BERTje':
+                tokenizer = BertTokenizer.from_pretrained('GroNLP/bert-base-dutch-cased')
+            train_encodings, train_encodings_simple = np.array(
+                transform_list_of_texts(train_df['text'], tokenizer, 510, 256, 256,
+                                        device=device))
+            val_encodings, val_encodings_simple = np.array(
+                transform_list_of_texts(test_df['text'], tokenizer, 510, 256, 256,
+                                        device=device))
+            if config['BERT']['type'] == 'truncated':
+                train_encodings, val_encodings = train_encodings_simple, val_encodings_simple
 
         conversations = list(set(train_df['conversation']))
         print(f"Test conversation: {comb[1]}")
@@ -106,32 +128,39 @@ def LR(args, config):
             calibration_df['h1'] = [1 if author == suspect else 0 for author in calibration_df['author_id']]
             calibration_scores = np.zeros(len(conversations) * n_authors)
             calibration_truth = np.zeros(len(conversations) * n_authors)
+
             for j, c in enumerate(conversations):
                 # c is conversation in calibration set, all others go in training set
                 train = train_df.index[train_df['conversation'] != c].tolist()
                 calibrate = train_df.index[train_df['conversation'] == c].tolist()
 
-                scores = model_scores(scaled_train_data_word[train], train_df['h1'][train],
-                                      scaled_train_data_word[calibrate], scaled_train_data_char[train],
-                                      train_df['h1'][train], scaled_train_data_char[calibrate], model, config)
+                if config['modelType'] == 'SVM' or config['modelType'] == 'baseline':
+                    scores = model_scores(scaled_train_data_word[train], train_df['h1'][train],
+                                          scaled_train_data_word[calibrate], scaled_train_data_char[train],
+                                          train_df['h1'][train], scaled_train_data_char[calibrate], model, config)
 
-                #scores = np.log(scores/(1-scores))
+                elif config['modelType'] == 'BERT':
+                    calibration_encodings = train_encodings[calibrate]
+                    scores = bert_model_scores(train_encodings[train], calibration_encodings, train_df['h1'][train],
+                                               train_df['h1'][calibrate], config)
 
                 calibration_scores[j * n_authors:(j + 1) * n_authors] = scores
                 calibration_truth[j * n_authors:(j + 1) * n_authors] = np.array(calibration_df['h1'][calibrate])
 
             # Fit bounded calibrator
             calibrator = lir.KDECalibrator(bandwidth='silverman')
-            #calibrator.fit(calibration_scores, calibration_truth == 1)
             bounded_calibrator = lir.ELUBbounder(calibrator)
             bounded_calibrator.fit(calibration_scores, calibration_truth == 1)
 
             # Calculate scores on validation set
-            validation_scores = model_scores(scaled_train_data_word, train_df['h1'],
-                                             scaled_test_data_word, scaled_train_data_char,
-                                             train_df['h1'], scaled_test_data_char, model, config)
+            if config['modelType'] == 'SVM' or config['modelType'] == 'baseline':
+                validation_scores = model_scores(scaled_train_data_word, train_df['h1'],
+                                                 scaled_test_data_word, scaled_train_data_char,
+                                                 train_df['h1'], scaled_test_data_char, model, config)
 
-            #validation_scores = np.log(validation_scores / (1 - validation_scores))
+            elif config['modelType'] == 'BERT':
+                validation_scores = bert_model_scores(train_encodings, val_encodings, train_df['h1'], test_df['h1'],
+                                                      config)
 
             # Calculate the corresponding validation LRs
             lrs_validation = bounded_calibrator.transform(validation_scores)
@@ -145,18 +174,6 @@ def LR(args, config):
 
             # necessary wait due to limits of LIR library
             time.sleep(0.01)
-
-            # Calculate the current Cllrs
-            cllr = lir.metrics.cllr(validation_lr[k:k + n_authors], validation_truth[k:k + n_authors])
-            cllr_min = lir.metrics.cllr_min(validation_lr[k:k + n_authors], validation_truth[k:k + n_authors])
-            cllr_cal = cllr - cllr_min
-            cllr_avg = cllr_avg + np.array([cllr, cllr_min, cllr_cal, 1])
-
-            # Calculate how many of the LRs under H_d are equal to the lower bound.
-            avg += np.sum(lrs_validation == np.min(lrs_validation))
-            total += len(lrs_validation) - 1
-
-        print(avg / total)
 
     #KDE plot
     with plotting.show() as ax:
@@ -182,14 +199,12 @@ def LR(args, config):
         ax.tippett(validation_lr[i*n_authors**2:(i+1)*n_authors**2], validation_truth[i*n_authors**2:(i+1)*n_authors**2])
     plt.show()
     """
-    print(f"Nauthors: {n_authors}")
+    print(f"Number of authors: {n_authors}")
 
     cllr = lir.metrics.cllr(validation_lr, validation_truth)
     cllr_min = lir.metrics.cllr_min(validation_lr, validation_truth)
     cllr_cal = cllr - cllr_min
     print(f"Cllr: {cllr:.3f}, Cllr_min: {cllr_min:.3f}, Cllr_cal: {cllr_cal:.3f}")
-    print(f"Average Cllr: {cllr_avg[0] / cllr_avg[3]:.3f}, Cllr_min: {cllr_avg[1] / cllr_avg[3]:.3f}\
-                , Cllr_cal: {cllr_avg[2] / cllr_avg[3]:.3f}")
     cllrs = np.zeros(n_authors)
     cllrs_min = np.zeros(n_authors)
     cllrs_cal = np.zeros(n_authors)
@@ -210,25 +225,23 @@ def LR(args, config):
     # Multiple box plots on one Axes
     fig, ax = plt.subplots()
     ax.boxplot([cllrs, cllrs_min, cllrs_cal], labels=['$C_{llr}$', '$C_{llr}^{min}$', '$C_{llr}^{cal}$'])
-
-    plt.show()
-
-    authors = np.unique(train_df['author'])
-    plt.scatter(authors, cllrs, label='cllr', marker='o')
-    plt.scatter(authors, cllrs_min, label='cllr_min', marker='s')
-    plt.scatter(authors, cllrs_cal, label='cllr_cal', marker='P')
-    plt.legend()
     plt.show()
 
     print(f"Average Cllr: {np.mean(cllrs):.3f}, Cllr_min: {np.mean(cllrs_min):.3f}, Cllr_cal: {np.mean(cllrs_cal):.3f}")
     output_file = args.output_path + os.sep + 'LR_' + args.corpus_name + ".csv"
     with open(output_file, 'a', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow([round(cllr, 3), round(cllr_min, 3), round(cllr_cal, 3), round(np.mean(cllrs_min), 3),
-                         round(np.mean(cllrs_cal), 3), config['variables']['nAuthors'],
-                         config['masking']['masking'], config['masking']['nMasking'], config['variables']['model']])
+        if config['modelType'] == 'SVM' or config['modelType'] == 'baseline':
+            writer.writerow([round(np.mean(cllrs), 3), round(np.mean(cllrs_min), 3),round(np.mean(cllrs_cal), 3),
+                             config['modelType'], config['variables']['nAuthors'], config['masking']['masking'],
+                             config['masking']['nMasking'], config['variables']['model']])
+        elif config['modelType'] == 'BERT':
+            writer.writerow([round(np.mean(cllrs), 3), round(np.mean(cllrs_min), 3), round(np.mean(cllrs_cal), 3),
+                             config['modelType'], config['variables']['nAuthors'], config['BERT']['model'],
+                             config['BERT']['type'], config['BERT']['epochs']])
+
     '''
-    output_file = args.output_path + os.sep + 'baseline_LRS_' + args.corpus_name + ".csv"
+    output_file = args.output_path + os.sep + 'LRS_' + config['modelType'] + args.corpus_name + ".csv"
     with open(output_file, 'a', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(validation_lr)
@@ -246,11 +259,11 @@ def LR(args, config):
     if add:
         add_lrs = additional_lr
         freq3 = np.histogram(add_lrs, bins=[-np.inf] + [1] + [np.inf])[0] / len(add_lrs)
-        print(freq3)
         print(f"Additional samples with LR > 1: {(freq3[1]) * 100:.3f}%")
     print(f"H1 sample with lowest LR: {np.min(h1_lrs):.3f}, H2 sample with highest LR: {np.max(h2_lrs):.3f}")
     print(f"H1 sample with highest LR: {np.max(h1_lrs):.3f}, H2 sample with lowest LR: {np.min(h2_lrs):.3f}")
 
+    # Tippet plot
     with plotting.show() as ax:
         ax.tippett(validation_lr, validation_truth)
         if add:
@@ -261,18 +274,9 @@ def LR(args, config):
         ax.legend()
     plt.show()
 
-    with plotting.show() as ax:
-        ax.pav(validation_lr, validation_truth)
-    plt.show()
-
+    # ECE plot
     with plotting.show() as ax:
         ax.ece(validation_lr, validation_truth)
-    plt.show()
-
-    plt.scatter(validation_scores[:n_authors][validation_truth[k:k + n_authors] == 1],
-                np.log10(validation_lr[k:k + n_authors])[validation_truth[k:k + n_authors] == 1])
-    plt.scatter(validation_scores[:n_authors][validation_truth[k:k + n_authors] == 0],
-                np.log10(validation_lr[k:k + n_authors])[validation_truth[k:k + n_authors] == 0])
     plt.show()
 
 
